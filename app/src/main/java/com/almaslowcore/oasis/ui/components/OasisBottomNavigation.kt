@@ -2,6 +2,7 @@ package com.almaslowcore.oasis.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -12,10 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.almaslowcore.oasis.core.navigation.OasisDestination
 import com.almaslowcore.oasis.core.navigation.bottomNavItems
 import com.almaslowcore.oasis.ui.theme.AppTheme
 
@@ -36,6 +39,7 @@ fun OasisBottomNavigation(
 ) {
     NavigationBar(
         modifier = Modifier
+            .padding(horizontal = 10.dp, vertical = 10.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surface),
@@ -49,10 +53,10 @@ fun OasisBottomNavigation(
         bottomNavItems.forEach { item ->
 
             NavigationBarItem(
-                selected = currentRoute == item.destination.route,
+                selected = currentRoute == item.route,
 
                 onClick = {
-                    navController.navigate(item.destination.route) {
+                    navController.navigate(item.route) {
                         launchSingleTop = true
                         restoreState = true
 
@@ -65,13 +69,13 @@ fun OasisBottomNavigation(
                 icon = {
                     Icon(
                         imageVector = item.icon,
-                        contentDescription = item.label
+                        contentDescription = stringResource(item.labelRes)
                     )
                 },
 
                 label = {
                     Text(
-                        text = item.label,
+                        text = stringResource(item.labelRes),
                         style = MaterialTheme.typography.labelMedium
                     )
                 },
@@ -100,7 +104,7 @@ fun OasisBottomNavigationPreview() {
 
         OasisBottomNavigation(
             navController = navController,
-            currentRoute = "todo"
+            currentRoute = OasisDestination.Home.route
         )
     }
 }

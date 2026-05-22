@@ -4,6 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.almaslowcore.oasis.features.activity.presentation.screen.ActivitiesScreen
+import com.almaslowcore.oasis.features.gamification.presentation.screen.ProfileScreen
+import com.almaslowcore.oasis.features.home.presentation.screen.HomeScreen
+import com.almaslowcore.oasis.features.journal.presentation.screen.JournalScreen
 
 /*
 import com.almaslowcore.oasis.features.todo.presentation.TodoScreen
@@ -38,7 +42,7 @@ fun AppNavGraph(
         navController = navController,
 
         // First screen shown when app starts
-        startDestination = OasisDestination.Todo.route
+        startDestination = OasisDestination.Home.route
     ) {
 
         /*
@@ -48,33 +52,27 @@ fun AppNavGraph(
          */
 
         composable(
-            route = OasisDestination.Todo.route
+            route = OasisDestination.Home.route
         ) {
-            //TodoScreen()
+            HomeScreen()
         }
 
         composable(
-            route = OasisDestination.Focus.route
+            route = OasisDestination.Activities.route
         ) {
-            //FocusScreen()
+            ActivitiesScreen()
         }
 
         composable(
             route = OasisDestination.Journal.route
         ) {
-            //JournalScreen()
+            JournalScreen()
         }
 
         composable(
-            route = OasisDestination.Steps.route
+            route = OasisDestination.Oasis.route
         ) {
-            //StepsScreen()
-        }
-
-        composable(
-            route = OasisDestination.Gamification.route
-        ) {
-            //GamificationScreen()
+            ProfileScreen()
         }
     }
 }
