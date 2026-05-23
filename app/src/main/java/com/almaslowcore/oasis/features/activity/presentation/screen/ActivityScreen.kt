@@ -1,75 +1,36 @@
 package com.almaslowcore.oasis.features.activity.presentation.screen
 
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-import com.almaslowcore.oasis.R
-import com.almaslowcore.oasis.ui.components.buttons.Fab
-import com.almaslowcore.oasis.ui.components.layout.EmptyState
-import com.almaslowcore.oasis.ui.components.layout.ErrorState
-import com.almaslowcore.oasis.ui.components.layout.LoadingState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.almaslowcore.oasis.features.activity.presentation.components.ActivityTab
+import com.almaslowcore.oasis.features.activity.presentation.components.ActivityTabs
 import com.almaslowcore.oasis.ui.components.layout.OasisScreen
-import com.almaslowcore.oasis.ui.components.layout.SectionHeader
 
 @Composable
 fun ActivitiesScreen() {
+    var selectedTabIndex by rememberSaveable {
+        mutableIntStateOf(ActivityTab.Today.ordinal)
+    }
+
+    val selectedTab = ActivityTab.entries[selectedTabIndex]
+
     OasisScreen(
-        title = stringResource(R.string.activities),
-        subtitle = "Hiển thị danh sách activity gồm habit và todo, có bộ lọc Today, Habits, Tasks và Completed.",
-        floatingActionButton = {
-            Fab(
-                icon = Icons.Default.Add,
-                contentDescription = "Add",
-                onClick = {}
-            )
-        }
+        title = "Activities",
+        subtitle = "Your habits and tasks for today.",
+        scrollable = false
     ) {
-        SectionHeader(
-            title = "Today's Activities",
-            subtitle = "List of activities",
-            actionText = "View all",
-            onActionClick = {
-                // navController.navigate(...)
+        ActivityTabs(
+            selectedTab = selectedTab,
+            onTabSelected = { tab ->
+                selectedTabIndex = tab.ordinal
             }
         )
-        val isLoading = false
-        val hasError = false
-        val activities = emptyList<String>()
-        when {
-            isLoading -> {
-                LoadingState(
-                    message = "Loading activities..."
-                )
-            }
-            hasError -> {
-                ErrorState(
-                    title = "Unable to load activities",
-                    message = "Something interrupted your data. Naturally.",
-                    onActionClick = {
-                        // retry
-                    }
-                )
-            }
 
-            activities.isEmpty() -> {
-                EmptyState(
-                    title = "No activities yet",
-                    message = "Create your first activity to start building your day.",
-                    actionText = "Create activity",
-                    onActionClick = {
-                        // navigate
-                    }
-                )
-            }
-
-
-
-            else -> {
-                // Activity list
-            }
-        }
+        // Activity list theo selectedTab
     }
 
 }

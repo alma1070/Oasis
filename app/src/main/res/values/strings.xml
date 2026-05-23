@@ -2,7 +2,6 @@
     <string name="app_name">Oasis</string>
 
 
-
     <string name="welcome_message">
         Welcome back to Oasis
     </string>
@@ -10,4 +9,5 @@
     <string name="activities">Activities</string>
     <string name="journal">Journal</string>
     <string name="welcome_back">Welcome back!</string>
+    <string name="title_activity_main">MainActivity</string>
 </resources>
