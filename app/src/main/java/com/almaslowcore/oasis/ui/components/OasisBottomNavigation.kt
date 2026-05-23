@@ -54,7 +54,6 @@ fun OasisBottomNavigation(
 
             NavigationBarItem(
                 selected = currentRoute == item.route,
-
                 onClick = {
                     navController.navigate(item.route) {
                         launchSingleTop = true
