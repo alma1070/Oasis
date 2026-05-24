@@ -1,7 +1,9 @@
 package com.almaslowcore.oasis.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -41,21 +43,19 @@ fun OasisBottomNavigation(
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 10.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surface),
+            .height(75.dp)
+            .clip(RoundedCornerShape(24.dp)),
 
-        containerColor =
-            MaterialTheme.colorScheme.surfaceContainerLow,
-
-        tonalElevation = 4.dp
-
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 4.dp,
+        windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
-        bottomNavItems.forEach { item ->
+        bottomNavItems.forEach { destination ->
 
             NavigationBarItem(
-                selected = currentRoute == item.route,
+                selected = currentRoute == destination.route,
                 onClick = {
-                    navController.navigate(item.route) {
+                    navController.navigate(destination.route) {
                         launchSingleTop = true
                         restoreState = true
 
@@ -66,17 +66,17 @@ fun OasisBottomNavigation(
                 },
 
                 icon = {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = stringResource(item.labelRes)
-                    )
+                    destination.icon?.let {
+                        Icon(imageVector = it, contentDescription = null)
+                    }
                 },
 
                 label = {
-                    Text(
-                        text = stringResource(item.labelRes),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    destination.labelRes?.let {
+                        Text(
+                            text = stringResource(it),
+                            style = MaterialTheme.typography.labelMedium)
+                    }
                 },
 
                 colors = NavigationBarItemDefaults.colors(

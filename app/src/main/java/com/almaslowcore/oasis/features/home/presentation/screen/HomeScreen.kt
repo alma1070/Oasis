@@ -10,8 +10,6 @@ import com.almaslowcore.oasis.ui.components.layout.SectionHeader
 @Composable
 fun HomeScreen() {
     OasisScreen(
-        title = stringResource(R.string.welcome_back),
-        subtitle = "Hiển thị tổng quan hôm nay: activity cần làm, mood hiện tại, tiến trình EXP, eco preview và các hành động nhanh."
     ) {
         Text("Eco preview coming soon")
 
