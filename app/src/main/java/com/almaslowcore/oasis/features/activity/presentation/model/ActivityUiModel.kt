@@ -1,5 +1,7 @@
 package com.almaslowcore.oasis.features.activity.presentation.model
 
+import com.almaslowcore.oasis.features.activity.domain.model.TimeOfDay
+
 enum class ActivityUiTrackingType {
     YES_NO,
     MEASURABLE
@@ -32,8 +34,17 @@ data class ActivityUiModel(
 
     val isCompleted: Boolean = false,
 
+    // Old display fields, keep temporarily to avoid breaking existing UI.
     val category: String? = null,
     val lifeArea: String? = null,
+
+    // Raw fields for filtering/grouping.
+    val categoryId: String? = null,
+    val categoryName: String? = null,
+    val lifeAreaId: String? = null,
+    val lifeAreaName: String? = null,
+    val timeOfDay: TimeOfDay = TimeOfDay.ANYTIME,
+    val specificTimeMinutes: Int? = null,
 
     val currentValue: Double? = null,
     val targetValue: Double? = null,

@@ -93,6 +93,14 @@ fun ActivityEntity.toUiModel(
         category = categoryId,
         lifeArea = lifeAreaId,
 
+        categoryId = categoryId,
+        categoryName = categoryId,
+        lifeAreaId = lifeAreaId,
+        lifeAreaName = lifeAreaId,
+
+        timeOfDay = timeOfDay,
+        specificTimeMinutes = specificTimeMinutes,
+
         currentValue = numericCurrentValue,
         targetValue = targetValue,
         unit = unit,

@@ -36,7 +36,7 @@ import com.almaslowcore.oasis.features.activity.domain.model.RepeatUnit
 import com.almaslowcore.oasis.features.activity.domain.model.TimeOfDay
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivitySubtaskDraft
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityUiState
-import com.almaslowcore.oasis.features.activity.presentation.viewmodel.CreateActivityViewModel
+import com.almaslowcore.oasis.features.activity.presentation.viewModel.CreateActivityViewModel
 import com.almaslowcore.oasis.ui.components.OasisFilterChipGroup
 import com.almaslowcore.oasis.ui.components.OasisToggle
 import com.almaslowcore.oasis.ui.components.buttons.OasisRadioButtonGroup
@@ -45,7 +45,6 @@ import com.almaslowcore.oasis.ui.components.dialogs.OasisTimePicker
 import com.almaslowcore.oasis.ui.components.inputs.OasisDropdown
 import com.almaslowcore.oasis.ui.components.inputs.OasisTextField
 import com.almaslowcore.oasis.ui.components.layout.OasisScreen
-import com.almaslowcore.oasis.ui.components.layout.SectionHeader
 import com.almaslowcore.oasis.ui.navigation.BottomBarAction
 import com.almaslowcore.oasis.ui.navigation.BottomBarConfig
 import com.almaslowcore.oasis.ui.navigation.LocalBottomBarController

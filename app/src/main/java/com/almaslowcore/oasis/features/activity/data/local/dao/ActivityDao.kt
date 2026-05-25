@@ -108,6 +108,18 @@ interface ActivityDao {
     fun observeLogsByDate(
         date: String
     ): Flow<List<ActivityLogEntity>>
+    @Query(
+        """
+    SELECT *
+    FROM activity_logs
+    WHERE date BETWEEN :startDate AND :endDate
+    ORDER BY activityId ASC, date ASC
+    """
+    )
+    fun observeLogsBetweenDates(
+        startDate: String,
+        endDate: String
+    ): Flow<List<ActivityLogEntity>>
 
     @Query(
         """
@@ -268,7 +280,18 @@ interface ActivityDao {
     fun observeSubtaskLogsByDate(
         date: String
     ): Flow<List<ActivitySubtaskLogEntity>>
-
+    @Query(
+        """
+    SELECT *
+    FROM activity_subtask_logs
+    WHERE date BETWEEN :startDate AND :endDate
+    ORDER BY subtaskId ASC, date ASC
+    """
+    )
+    fun observeSubtaskLogsBetweenDates(
+        startDate: String,
+        endDate: String
+    ): Flow<List<ActivitySubtaskLogEntity>>
     @Query(
         """
         UPDATE activity_subtask_logs

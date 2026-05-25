@@ -1,4 +1,4 @@
-package com.almaslowcore.oasis.features.activity.presentation.viewmodel
+package com.almaslowcore.oasis.features.activity.presentation.viewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,68 +7,315 @@ import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
 import com.almaslowcore.oasis.features.activity.domain.model.CreateActivityRequest
 import com.almaslowcore.oasis.features.activity.domain.repository.ActivityRepository
-import com.almaslowcore.oasis.features.activity.presentation.components.ActivityTab
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityFilterState
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityGroupBy
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityListSectionUiModel
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityPeriodMode
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityScreenUiState
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivitySubtaskUiModel
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityTimeOfDayFilter
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiMeasurableMode
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiModel
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiTrackingType
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityFormState
+import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityUiState
+import com.almaslowcore.oasis.features.activity.presentation.util.buildActivityTopBarUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDate
 import java.util.UUID
-import com.almaslowcore.oasis.features.activity.presentation.model.ActivityScreenUiState
-import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityUiState
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-
+import com.almaslowcore.oasis.features.activity.presentation.util.filterByCategories
+import com.almaslowcore.oasis.features.activity.presentation.util.filterByLifeAreas
+import com.almaslowcore.oasis.features.activity.presentation.util.filterByTimeOfDay
+import com.almaslowcore.oasis.features.activity.presentation.util.groupByMode
+import com.almaslowcore.oasis.features.activity.presentation.util.buildActivityDateRange
+import com.almaslowcore.oasis.features.activity.presentation.util.toIsoDateString
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val repository: ActivityRepository
 ) : ViewModel() {
-
-    private val selectedTab = MutableStateFlow(ActivityTab.Today)
-
-    private val selectedDate = MutableStateFlow(todayString())
+    private val filterState = MutableStateFlow(
+        ActivityFilterState()
+    )
 
     private val selectedActivityId = MutableStateFlow<String?>(null)
+
+    private val isFilterSheetOpen = MutableStateFlow(false)
+    private val isDatePickerOpen = MutableStateFlow(false)
+    private val isGroupByMenuOpen = MutableStateFlow(false)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val activityDetailsFlow =
+        filterState
+            .map { filter ->
+                buildActivityDateRange(
+                    selectedDate = filter.selectedDate,
+                    periodMode = filter.periodMode
+                )
+            }
+            .distinctUntilChanged()
+            .flatMapLatest { range ->
+                repository.observeActivitiesForPeriod(
+                    startDate = range.startDate.toIsoDateString(),
+                    endDate = range.endDate.toIsoDateString()
+                )
+            }
     private val createActivityUiState = MutableStateFlow(
         CreateActivityUiState()
     )
 
     val createState: StateFlow<CreateActivityUiState> = createActivityUiState
 
+    private val screenControlState: StateFlow<ActivityScreenControlState> =
+        combine(
+            selectedActivityId,
+            isFilterSheetOpen,
+            isDatePickerOpen,
+            isGroupByMenuOpen
+        ) { selectedActivityId, isFilterSheetOpen, isDatePickerOpen, isGroupByMenuOpen ->
+            ActivityScreenControlState(
+                selectedActivityId = selectedActivityId,
+                isFilterSheetOpen = isFilterSheetOpen,
+                isDatePickerOpen = isDatePickerOpen,
+                isGroupByMenuOpen = isGroupByMenuOpen
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ActivityScreenControlState()
+        )
+
     val uiState: StateFlow<ActivityScreenUiState> =
         combine(
-            repository.observeActivitiesForDate(selectedDate.value),
-            selectedTab,
-            selectedActivityId
-        ) { activityDetails, tab, selectedActivityId ->
-            val activities = activityDetails
-                .map { detail ->
-                    detail.toUiModel()
-                }
-                .filterByTab(tab)
+            activityDetailsFlow,
+            filterState,
+            screenControlState
+        ) { activityDetails, currentFilterState, controls ->
+
+            val activities: List<ActivityUiModel> = activityDetails.map { detail: ActivityPeriodDetailModel ->
+                detail.toPeriodUiModel()
+            }
+
+            val filteredActivities: List<ActivityUiModel> = activities
+                .filterByTimeOfDay(currentFilterState.timeOfDayFilter)
+                .filterByCategories(currentFilterState.selectedCategoryIds)
+                .filterByLifeAreas(currentFilterState.selectedLifeAreaIds)
+
+            val sections: List<ActivityListSectionUiModel> = filteredActivities.groupByMode(
+                groupBy = currentFilterState.groupBy
+            )
 
             ActivityScreenUiState(
                 isLoading = false,
                 errorMessage = null,
-                selectedTab = tab,
-                activities = activities,
-                selectedActivityId = selectedActivityId
+
+                filterState = currentFilterState,
+                topBar = buildActivityTopBarUiState(
+                    filterState = currentFilterState
+                ),
+
+                activities = filteredActivities,
+                sections = sections,
+
+                availableCategoryIds = activities
+                    .mapNotNull { activity ->
+                        activity.categoryId
+                    }
+                    .distinct()
+                    .sorted(),
+
+                availableLifeAreaIds = activities
+                    .mapNotNull { activity ->
+                        activity.lifeAreaId
+                    }
+                    .distinct()
+                    .sorted(),
+
+                selectedActivityId = controls.selectedActivityId,
+
+                isFilterSheetOpen = controls.isFilterSheetOpen,
+                isDatePickerOpen = controls.isDatePickerOpen,
+                isGroupByMenuOpen = controls.isGroupByMenuOpen
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ActivityScreenUiState()
         )
+
+
+
+    private fun currentSelectedDateString(): String {
+        return filterState.value.selectedDate.toIsoDateString()
+    }
+
+    fun onPeriodModeChanged(
+        mode: ActivityPeriodMode
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                periodMode = mode
+            )
+        }
+    }
+
+    fun onDateSelected(
+        date: LocalDate
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedDate = date
+            )
+        }
+
+        dismissDatePicker()
+    }
+
+    fun goToPreviousPeriod() {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedDate = when (currentState.periodMode) {
+                    ActivityPeriodMode.DAY -> currentState.selectedDate.minusDays(1)
+                    ActivityPeriodMode.WEEK -> currentState.selectedDate.minusWeeks(1)
+                    ActivityPeriodMode.MONTH -> currentState.selectedDate.minusMonths(1)
+                }
+            )
+        }
+    }
+
+    fun goToNextPeriod() {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedDate = when (currentState.periodMode) {
+                    ActivityPeriodMode.DAY -> currentState.selectedDate.plusDays(1)
+                    ActivityPeriodMode.WEEK -> currentState.selectedDate.plusWeeks(1)
+                    ActivityPeriodMode.MONTH -> currentState.selectedDate.plusMonths(1)
+                }
+            )
+        }
+    }
+
+    fun goToToday() {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedDate = LocalDate.now()
+            )
+        }
+    }
+
+    fun onTimeOfDayFilterChanged(
+        filter: ActivityTimeOfDayFilter
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                timeOfDayFilter = filter
+            )
+        }
+    }
+
+    fun onCategoryCheckedChange(
+        categoryId: String,
+        checked: Boolean
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedCategoryIds = currentState.selectedCategoryIds.toggle(
+                    value = categoryId,
+                    checked = checked
+                )
+            )
+        }
+    }
+
+    fun onLifeAreaCheckedChange(
+        lifeAreaId: String,
+        checked: Boolean
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedLifeAreaIds = currentState.selectedLifeAreaIds.toggle(
+                    value = lifeAreaId,
+                    checked = checked
+                )
+            )
+        }
+    }
+
+    fun clearCategoryFilters() {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedCategoryIds = emptySet()
+            )
+        }
+    }
+
+    fun clearLifeAreaFilters() {
+        filterState.update { currentState ->
+            currentState.copy(
+                selectedLifeAreaIds = emptySet()
+            )
+        }
+    }
+
+    fun clearAllFilters() {
+        filterState.update { currentState ->
+            currentState.copy(
+                timeOfDayFilter = ActivityTimeOfDayFilter.ANYTIME,
+                selectedCategoryIds = emptySet(),
+                selectedLifeAreaIds = emptySet(),
+                groupBy = ActivityGroupBy.NONE
+            )
+        }
+    }
+
+    fun onGroupByChanged(
+        groupBy: ActivityGroupBy
+    ) {
+        filterState.update { currentState ->
+            currentState.copy(
+                groupBy = groupBy
+            )
+        }
+
+        dismissGroupByMenu()
+    }
+
+    // UI dialog/menu action
+    fun openFilterSheet() {
+        isFilterSheetOpen.value = true
+    }
+
+    fun dismissFilterSheet() {
+        isFilterSheetOpen.value = false
+    }
+
+    fun openDatePicker() {
+        isDatePickerOpen.value = true
+    }
+
+    fun dismissDatePicker() {
+        isDatePickerOpen.value = false
+    }
+
+    fun openGroupByMenu() {
+        isGroupByMenuOpen.value = true
+    }
+
+    fun dismissGroupByMenu() {
+        isGroupByMenuOpen.value = false
+    }
+    //--------------------
 
     fun openProgressDialog(
         activityId: String
@@ -88,7 +335,7 @@ class ActivityViewModel @Inject constructor(
             runCatching {
                 repository.updateActivityCompletion(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     isCompleted = true,
                     note = note
                 )
@@ -121,14 +368,14 @@ class ActivityViewModel @Inject constructor(
             runCatching {
                 repository.updateNumericProgress(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     value = value,
                     note = note
                 )
 
                 repository.updateActivityCompletion(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     isCompleted = shouldComplete,
                     note = note
                 )
@@ -167,7 +414,7 @@ class ActivityViewModel @Inject constructor(
                     if (subtask.isCompleted != newCompletedState) {
                         repository.toggleSubtask(
                             subtaskId = subtask.id,
-                            date = selectedDate.value,
+                            date = currentSelectedDateString(),
                             isCompleted = newCompletedState
                         )
                     }
@@ -175,7 +422,7 @@ class ActivityViewModel @Inject constructor(
 
                 repository.updateActivityCompletion(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     isCompleted = shouldComplete,
                     note = note
                 )
@@ -191,10 +438,20 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    fun onTabSelected(
-        tab: ActivityTab
-    ) {
-        selectedTab.value = tab
+    // Inside ActivityViewModel.kt
+
+    fun onPreviousDate() {
+        val currentDate = uiState.value.filterState.selectedDate
+        // Depending on your app logic, you might want to subtract 1 day,
+        // or subtract based on the current PeriodMode (Week/Month)
+        val newDate = currentDate.minusDays(1)
+        onDateSelected(newDate)
+    }
+
+    fun onNextDate() {
+        val currentDate = uiState.value.filterState.selectedDate
+        val newDate = currentDate.plusDays(1)
+        onDateSelected(newDate)
     }
 
     fun onActivityCheckedChange(
@@ -205,7 +462,7 @@ class ActivityViewModel @Inject constructor(
             runCatching {
                 repository.updateActivityCompletion(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     isCompleted = isCompleted
                 )
             }.onFailure { throwable ->
@@ -228,7 +485,7 @@ class ActivityViewModel @Inject constructor(
             runCatching {
                 repository.updateNumericProgress(
                     activityId = activityId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     value = value
                 )
             }.onFailure { throwable ->
@@ -249,7 +506,7 @@ class ActivityViewModel @Inject constructor(
             runCatching {
                 repository.toggleSubtask(
                     subtaskId = subtaskId,
-                    date = selectedDate.value,
+                    date = currentSelectedDateString(),
                     isCompleted = isCompleted
                 )
             }.onFailure { throwable ->
@@ -373,36 +630,6 @@ class ActivityViewModel @Inject constructor(
     }
 }
 
-private fun List<ActivityUiModel>.filterByTab(
-    tab: ActivityTab
-): List<ActivityUiModel> {
-    return when (tab) {
-        ActivityTab.Today -> {
-            filter {
-                !it.isCompleted
-            }
-        }
-
-        ActivityTab.Habits -> {
-            filter {
-                it.isHabit && !it.isCompleted
-            }
-        }
-
-        ActivityTab.Tasks -> {
-            filter {
-                !it.isHabit && !it.isCompleted
-            }
-        }
-
-        ActivityTab.Completed -> {
-            filter {
-                it.isCompleted
-            }
-        }
-    }
-}
-
 private fun ActivityDetailModel.toUiModel(): ActivityUiModel {
     val isHabit = activity.activityType.name == "HABIT"
 
@@ -469,8 +696,18 @@ private fun ActivityDetailModel.toUiModel(): ActivityUiModel {
         trackingType = uiTrackingType,
         measurableMode = uiMeasurableMode,
         isCompleted = isCompleted,
+
         category = activity.categoryId,
         lifeArea = activity.lifeAreaId,
+
+        categoryId = activity.categoryId,
+        categoryName = activity.categoryId,
+        lifeAreaId = activity.lifeAreaId,
+        lifeAreaName = activity.lifeAreaId,
+
+        timeOfDay = activity.timeOfDay,
+        specificTimeMinutes = activity.specificTimeMinutes,
+
         currentValue = log?.value,
         targetValue = activity.targetValue,
         unit = activity.unit,
@@ -486,6 +723,70 @@ private fun ActivityDetailModel.toUiModel(): ActivityUiModel {
                 title = it.title,
                 isCompleted = it.isCompleted,
                 orderIndex = it.orderIndex
+            )
+        }
+    )
+}
+//mapper
+private fun ActivityPeriodDetailModel.toPeriodUiModel(): ActivityUiModel {
+    val isHabit = activity.activityType.name == "HABIT"
+
+    val uiTrackingType = when (activity.trackingType.name) {
+        "MEASURABLE" -> ActivityUiTrackingType.MEASURABLE
+        else -> ActivityUiTrackingType.YES_NO
+    }
+
+    val uiMeasurableMode = when (activity.measurableMode?.name) {
+        "NUMERIC" -> ActivityUiMeasurableMode.NUMERIC
+        "CHECKLIST" -> ActivityUiMeasurableMode.CHECKLIST
+        else -> null
+    }
+
+    return ActivityUiModel(
+        id = activity.id,
+        title = activity.title,
+        description = activity.description,
+
+        iconName = activity.iconName,
+        colorHex = activity.colorHex,
+
+        isHabit = isHabit,
+        trackingType = uiTrackingType,
+        measurableMode = uiMeasurableMode,
+
+        isCompleted = summary.isCompleted,
+
+        category = activity.categoryId,
+        lifeArea = activity.lifeAreaId,
+
+        categoryId = activity.categoryId,
+        categoryName = activity.categoryId,
+        lifeAreaId = activity.lifeAreaId,
+        lifeAreaName = activity.lifeAreaId,
+
+        timeOfDay = activity.timeOfDay,
+        specificTimeMinutes = activity.specificTimeMinutes,
+
+        currentValue = summary.totalValue,
+        targetValue = summary.targetValue,
+        unit = activity.unit,
+
+        streakCount = null,
+
+        dueText = activity.timeOfDay.name,
+        repeatText = buildRepeatText(activity),
+
+        progress = summary.progress,
+
+        completedSubtaskCount = summary.completedSubtaskLogCount,
+        totalSubtaskCount = summary.totalSubtaskPossibleCount,
+
+        subtasks = subtasks.map { subtask ->
+            ActivitySubtaskUiModel(
+                id = subtask.id,
+                title = subtask.title,
+                isCompleted = subtask.isCompleted,
+                orderIndex = subtask.orderIndex
             )
         }
     )
@@ -508,9 +809,24 @@ private fun buildRepeatText(
     }
 }
 
-private fun todayString(): String {
-    return SimpleDateFormat(
-        "yyyy-MM-dd",
-        Locale.US
-    ).format(Date())
+private fun LocalDate.toIsoDateString(): String {
+    return toString()
+}
+
+private data class ActivityScreenControlState(
+    val selectedActivityId: String? = null,
+    val isFilterSheetOpen: Boolean = false,
+    val isDatePickerOpen: Boolean = false,
+    val isGroupByMenuOpen: Boolean = false
+)
+
+private fun Set<String>.toggle(
+    value: String,
+    checked: Boolean
+): Set<String> {
+    return if (checked) {
+        this + value
+    } else {
+        this - value
+    }
 }

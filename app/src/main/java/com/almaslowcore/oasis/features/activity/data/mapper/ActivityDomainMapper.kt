@@ -6,6 +6,8 @@ import com.almaslowcore.oasis.features.activity.data.local.entity.ActivitySubtas
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityLogModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
+import com.almaslowcore.oasis.features.activity.data.local.entity.ActivitySubtaskLogEntity
+import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskLogModel
 
 fun ActivityEntity.toDomainModel(): ActivityModel {
     return ActivityModel(
@@ -104,5 +106,17 @@ fun ActivitySubtaskModel.toEntity(): ActivitySubtaskEntity {
         createdAt = createdAt,
         updatedAt = updatedAt,
         isArchived = isArchived
+    )
+}
+
+fun ActivitySubtaskLogEntity.toDomainModel(): ActivitySubtaskLogModel {
+    return ActivitySubtaskLogModel(
+        id = id,
+        subtaskId = subtaskId,
+        date = date,
+        isCompleted = isCompleted,
+        completedAt = completedAt,
+        createdAt = createdAt,
+        updatedAt = updatedAt
     )
 }

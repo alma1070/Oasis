@@ -4,12 +4,16 @@ import com.almaslowcore.oasis.features.activity.domain.model.ActivityDetailModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
 import com.almaslowcore.oasis.features.activity.domain.model.CreateActivityRequest
 import kotlinx.coroutines.flow.Flow
-
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel
 interface ActivityRepository {
 
     fun observeActivitiesForDate(
         date: String
     ): Flow<List<ActivityDetailModel>>
+    fun observeActivitiesForPeriod(
+        startDate: String,
+        endDate: String
+    ): Flow<List<ActivityPeriodDetailModel>>
 
     fun observeActivityDetail(
         activityId: String,
@@ -47,4 +51,5 @@ interface ActivityRepository {
         date: String,
         isCompleted: Boolean
     )
+
 }

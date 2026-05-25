@@ -1,4 +1,4 @@
-package com.almaslowcore.oasis.features.activity.presentation.viewmodel
+package com.almaslowcore.oasis.features.activity.presentation.viewModel
 
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityTrackingType
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityType
 import com.almaslowcore.oasis.features.activity.domain.model.CreateActivityRequest
 import com.almaslowcore.oasis.features.activity.domain.model.MeasurableMode
 import com.almaslowcore.oasis.features.activity.domain.model.RepeatEndType
@@ -20,7 +21,6 @@ import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivit
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityUiState
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -124,7 +124,7 @@ class CreateActivityViewModel @Inject constructor(
     }
 
 
-    fun onActivityTypeChange(activityType: com.almaslowcore.oasis.features.activity.domain.model.ActivityType) {
+    fun onActivityTypeChange(activityType: ActivityType) {
         updateForm {
             it.copy(activityType = activityType)
         }

@@ -6,6 +6,8 @@ package com.almaslowcore.oasis.core.di
 
 import com.almaslowcore.oasis.features.activity.data.repository.ActivityRepositoryImpl
 import com.almaslowcore.oasis.features.activity.domain.repository.ActivityRepository
+import com.almaslowcore.oasis.features.journal.data.repository.JournalRepositoryImpl
+import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -21,4 +23,10 @@ abstract class RepositoryModule {
     abstract fun bindActivityRepository(
         impl: ActivityRepositoryImpl
     ): ActivityRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindJournalRepository(
+        impl: JournalRepositoryImpl
+    ): JournalRepository
 }

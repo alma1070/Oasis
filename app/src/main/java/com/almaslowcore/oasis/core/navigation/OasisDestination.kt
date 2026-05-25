@@ -64,20 +64,52 @@ sealed class OasisDestination(
         showBottomNav = false,
         isTopLevel = false
     )
+
+    data object JournalCheckIn : OasisDestination(
+        route = "journal/check-in",
+        titleRes = R.string.check_in,
+        showBottomNav = false,
+        isTopLevel = false
+    )
+
+    data object JournalEdit : OasisDestination(
+        route = "journal/edit/{entryId}",
+        titleRes = R.string.edit_check_in,
+        showBottomNav = false,
+        isTopLevel = false
+    ) {
+        const val ENTRY_ID_ARG = "entryId"
+
+        fun createRoute(entryId: Long): String {
+            return "journal/edit/$entryId"
+        }
+    }
 }
 
 /**
  * Maps a route string back to an OasisDestination object.
  */
 fun getDestinationFromRoute(route: String?): OasisDestination? {
-    return when (route?.substringBefore("/")) { // substringBefore handles routes with arguments like "detail/{id}"
-        OasisDestination.Home.route -> OasisDestination.Home
-        OasisDestination.Activities.route -> OasisDestination.Activities
-        OasisDestination.Journal.route -> OasisDestination.Journal
-        OasisDestination.Oasis.route -> OasisDestination.Oasis
-        OasisDestination.CreateActivity.route -> OasisDestination.CreateActivity
-        OasisDestination.ActivityDetail.route -> OasisDestination.ActivityDetail
-        OasisDestination.EditActivity.route -> OasisDestination.EditActivity
+    return when {
+        route == null -> null
+
+        route == OasisDestination.Home.route -> OasisDestination.Home
+        route == OasisDestination.Activities.route -> OasisDestination.Activities
+        route == OasisDestination.Journal.route -> OasisDestination.Journal
+        route == OasisDestination.Oasis.route -> OasisDestination.Oasis
+
+        route == OasisDestination.CreateActivity.route -> OasisDestination.CreateActivity
+        route == OasisDestination.ActivityDetail.route ||
+                route.startsWith("activity_detail/") -> OasisDestination.ActivityDetail
+
+        route == OasisDestination.EditActivity.route ||
+                route.startsWith("edit_activity/") -> OasisDestination.EditActivity
+
+        route == OasisDestination.JournalCheckIn.route -> OasisDestination.JournalCheckIn
+
+        route == OasisDestination.JournalEdit.route ||
+                route.startsWith("journal/edit/") -> OasisDestination.JournalEdit
+
         else -> null
     }
 }

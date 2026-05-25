@@ -45,30 +45,16 @@ fun MainScaffold() {
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            currentDestination?.titleRes?.let {
-                                stringResource(it)
-                            } ?: ""
-                        )
-                    },
-                    actions = {
-                        if (currentDestination?.isTopLevel == true) {
-                            IconButton(
-                                onClick = {
-                                    // TODO: open profile/settings
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile"
-                                )
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        if (currentDestination?.isTopLevel == false) {
+                if (currentDestination?.isTopLevel == false) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                currentDestination?.titleRes?.let {
+                                    stringResource(it)
+                                } ?: ""
+                            )
+                        },
+                        navigationIcon = {
                             IconButton(
                                 onClick = {
                                     navController.popBackStack()
@@ -80,8 +66,8 @@ fun MainScaffold() {
                                 )
                             }
                         }
-                    }
-                )
+                    )
+                }
             },
             bottomBar = {
                 if (currentDestination?.showBottomNav == true) {
@@ -93,16 +79,6 @@ fun MainScaffold() {
                     bottomBarController.config?.let { config ->
                         OasisBottomBar(config = config)
                     }
-                }
-            },
-            floatingActionButton = {
-                // Show FAB only on the Activities screen
-                if (currentDestination == OasisDestination.Activities) {
-                    Fab(
-                        onClick = {
-                            navController.navigate(OasisDestination.CreateActivity.route)
-                        }
-                    )
                 }
             }
         ) { innerPadding ->

@@ -55,4 +55,61 @@
     <string name="actCreateToBegin">Start creating an activity</string>
     <string name="title">Title</string>
     <string name="description">Description</string>
+    <string name="noCategory">No Category</string>
+    <string name="noLifeArea">No Life Area</string>
+
+    <!-- Activity Screen Top Bar -->
+    <string name="filter">Filter</string>
+    <string name="group_by">Group by</string>
+    <string name="date_picker">Date picker</string>
+    <string name="choose_date">Choose date</string>
+    <string name="filter_activities">Filter activities</string>
+    <string name="group_activities">Group activities</string>
+
+    <!-- Activity Period Relative Labels -->
+    <string name="today">Today</string>
+    <string name="this_week">This week</string>
+    <string name="this_month">This month</string>
+
+    <string name="days_ago">%1$d days ago</string>
+    <string name="day_ago">1 day ago</string>
+    <string name="days_later">%1$d days later</string>
+    <string name="day_later">1 day later</string>
+
+    <string name="weeks_ago">%1$d weeks ago</string>
+    <string name="week_ago">1 week ago</string>
+    <string name="weeks_later">%1$d weeks later</string>
+    <string name="week_later">1 week later</string>
+
+    <string name="months_ago">%1$d months ago</string>
+    <string name="month_ago">1 month ago</string>
+    <string name="months_later">%1$d months later</string>
+    <string name="month_later">1 month later</string>
+
+    <!-- Activity Filter Sheet -->
+    <string name="period">Period</string>
+    <string name="time_of_day">Time of day</string>
+    <string name="category">Category</string>
+    <string name="life_area">Life Area</string>
+    <string name="all_categories">All categories</string>
+    <string name="all_life_areas">All life areas</string>
+    <string name="no_categories_yet">No categories yet</string>
+    <string name="no_life_areas_yet">No life areas yet</string>
+    <string name="clear">Clear</string>
+    <string name="done">Done</string>
+    <string name="choose_what_should_appear">Choose what should appear in the list</string>
+
+    <!-- Activity Group By -->
+    <string name="none">None</string>
+    <string name="uncategorized">Uncategorized</string>
+    <string name="no_life_area_group">No life area</string>
+
+    <!-- Activity Empty State -->
+    <string name="no_activities_found">No activities found</string>
+
+    <!-- Date Picker -->
+    <string name="confirm">Confirm</string>
+    <string name="check_in">Check in</string>
+    <string name="edit_check_in">Edit Check in</string>
+    <string name="update">Update</string>
 </resources>

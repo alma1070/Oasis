@@ -98,7 +98,46 @@ data class ActivityDetailModel(
     val subtasks: List<ActivitySubtaskModel> = emptyList()
 )
 
+data class ActivitySubtaskLogModel(
+    val id: String,
+    val subtaskId: String,
+    val date: String,
+    val isCompleted: Boolean = false,
+    val completedAt: Long? = null,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
 data class CreateActivityRequest(
     val activity: ActivityModel,
     val subtasks: List<ActivitySubtaskModel> = emptyList()
+)
+
+data class ActivityPeriodSummaryModel(
+    val startDate: String,
+    val endDate: String,
+
+    val periodDayCount: Int,
+
+    val loggedDayCount: Int,
+    val completedDayCount: Int,
+
+    val totalValue: Double? = null,
+    val targetValue: Double? = null,
+
+    val completedSubtaskLogCount: Int = 0,
+    val totalSubtaskPossibleCount: Int = 0,
+
+    val progress: Float? = null,
+    val isCompleted: Boolean = false,
+
+    val latestLog: ActivityLogModel? = null
+)
+
+data class ActivityPeriodDetailModel(
+    val activity: ActivityModel,
+    val logs: List<ActivityLogModel> = emptyList(),
+    val subtasks: List<ActivitySubtaskModel> = emptyList(),
+    val subtaskLogs: List<ActivitySubtaskLogModel> = emptyList(),
+    val summary: ActivityPeriodSummaryModel
 )
