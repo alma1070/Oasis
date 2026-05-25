@@ -44,24 +44,26 @@ sealed class OasisDestination(
         Icons.Default.Spa,
         labelRes = R.string.app_name)
 
-
-    /*
-    // Example of a Detail screen
-    data object TaskDetail : OasisDestination(
-        route = "task_detail/{taskId}",
-        titleRes = R.string.task_details,
-        showBottomNav = false, // Detail screens often hide the main bottom nav
+    data object CreateActivity : OasisDestination(
+        route = "create_activity",
+        titleRes = R.string.create_activity,
+        showBottomNav = false,
         isTopLevel = false
     )
-    data object FocusTimer : OasisDestination("focus_timer")
-    data object ActivityDetail : OasisDestination("activity_detail/{activityId}")
-    data object CreateActivity : OasisDestination("create_activity")
-    data object AddJournal : OasisDestination("add_journal")
-    data object Expense : OasisDestination("expense")
-    data object LifeWheel : OasisDestination("life_wheel")
-    data object VisionBoard : OasisDestination("vision_board")
 
-     */
+    data object ActivityDetail : OasisDestination(
+        route = "activity_detail/{activityId}",
+        titleRes = R.string.activity_details,
+        showBottomNav = false,
+        isTopLevel = false
+    )
+
+    data object EditActivity : OasisDestination(
+        route = "edit_activity/{activityId}",
+        titleRes = R.string.edit_activity,
+        showBottomNav = false,
+        isTopLevel = false
+    )
 }
 
 /**
@@ -73,6 +75,9 @@ fun getDestinationFromRoute(route: String?): OasisDestination? {
         OasisDestination.Activities.route -> OasisDestination.Activities
         OasisDestination.Journal.route -> OasisDestination.Journal
         OasisDestination.Oasis.route -> OasisDestination.Oasis
+        OasisDestination.CreateActivity.route -> OasisDestination.CreateActivity
+        OasisDestination.ActivityDetail.route -> OasisDestination.ActivityDetail
+        OasisDestination.EditActivity.route -> OasisDestination.EditActivity
         else -> null
     }
 }

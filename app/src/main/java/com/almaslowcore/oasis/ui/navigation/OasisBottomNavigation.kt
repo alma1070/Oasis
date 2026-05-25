@@ -1,6 +1,5 @@
-package com.almaslowcore.oasis.ui.components
+package com.almaslowcore.oasis.ui.navigation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height

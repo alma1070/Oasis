@@ -2,6 +2,12 @@ package com.almaslowcore.oasis.features.activity.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityTrackingType
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityType
+import com.almaslowcore.oasis.features.activity.domain.model.MeasurableMode
+import com.almaslowcore.oasis.features.activity.domain.model.RepeatEndType
+import com.almaslowcore.oasis.features.activity.domain.model.RepeatUnit
+import com.almaslowcore.oasis.features.activity.domain.model.TimeOfDay
 
 @Entity(tableName = "activities")
 data class ActivityEntity(

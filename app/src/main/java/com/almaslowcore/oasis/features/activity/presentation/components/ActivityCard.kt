@@ -5,64 +5,38 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.R
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivitySubtaskUiModel
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiMeasurableMode
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiModel
+import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiTrackingType
 import com.almaslowcore.oasis.ui.components.cards.BasisCard
 import com.almaslowcore.oasis.ui.components.cards.BasisCardType
 import com.almaslowcore.oasis.ui.theme.AppTheme
-
-enum class ActivityTrackingType {
-    YES_NO,
-    MEASURABLE
-}
-
-data class ActivityUiModel(
-    val id: String,
-    val title: String,
-    val description: String? = null,
-    val isHabit: Boolean,
-    val trackingType: ActivityTrackingType,
-    val isCompleted: Boolean = false,
-    val category: String? = null,
-    val lifeArea: String? = null,
-    val currentValue: Float? = null,
-    val targetValue: Float? = null,
-    val unit: String? = null,
-    val streakCount: Int? = null,
-    val dueText: String? = null,
-    val repeatText: String? = null
-)
-
-/*
-val isOverdue: Boolean
-val priority: ActivityPriority
-val icon: ImageVector?
-val progressColor
- */
-
-// sau này có thể tách ra ActivityUiModel và ActivityTrackingType
+import kotlin.math.roundToInt
+import com.almaslowcore.oasis.R as R1
 
 @Composable
 fun ActivityCard(
     activity: ActivityUiModel,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    onCheckedChange: ((Boolean) -> Unit)? = null
+    onClick: () -> Unit
 ) {
     val cardType = if (activity.isCompleted) {
         BasisCardType.Outlined
@@ -72,56 +46,54 @@ fun ActivityCard(
 
     BasisCard(
         modifier = modifier
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable { onClick() }
-                } else {
-                    Modifier
-                }
-            )
+            .clickable(onClick = onClick)
             .alpha(
                 if (activity.isCompleted) 0.72f else 1f
             ),
         type = cardType,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Checkbox(
-                checked = activity.isCompleted,
-                onCheckedChange = onCheckedChange
-            )
+        ActivityCardHeader(
+            activity = activity
+        )
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                ActivityCardTitle(activity = activity)
-
-                ActivityCardMeta(activity = activity)
-
-                activity.description?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+        when {
+            activity.trackingType == ActivityUiTrackingType.MEASURABLE &&
+                    activity.measurableMode == ActivityUiMeasurableMode.NUMERIC -> {
+                NumericProgressSection(activity = activity)
             }
 
-            ActivityTypeLabel(
-                isHabit = activity.isHabit
-            )
-        }
-
-        if (activity.trackingType == ActivityTrackingType.MEASURABLE) {
-            ActivityProgressSection(activity = activity)
+            activity.trackingType == ActivityUiTrackingType.MEASURABLE &&
+                    activity.measurableMode == ActivityUiMeasurableMode.CHECKLIST -> {
+                ChecklistProgressSection(activity = activity)
+            }
         }
 
         ActivityCardFooter(activity = activity)
+    }
+}
+
+@Composable
+private fun ActivityCardHeader(
+    activity: ActivityUiModel
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ActivityCardTitle(activity = activity)
+
+            ActivityCardMeta(activity = activity)
+        }
+
+        ActivityTypeLabel(
+            isHabit = activity.isHabit
+        )
     }
 }
 
@@ -147,8 +119,6 @@ private fun ActivityCardMeta(
     activity: ActivityUiModel
 ) {
     val metaItems = buildList {
-        activity.category?.let { add(it) }
-        activity.lifeArea?.let { add(it) }
         activity.dueText?.let { add(it) }
         activity.repeatText?.let { add(it) }
     }
@@ -163,24 +133,59 @@ private fun ActivityCardMeta(
 }
 
 @Composable
-private fun ActivityProgressSection(
+private fun NumericProgressSection(
     activity: ActivityUiModel
 ) {
-    val currentValue = activity.currentValue ?: 0f
-    val targetValue = activity.targetValue ?: 0f
+    val currentValue = activity.currentValue ?: 0.0
+    val targetValue = activity.targetValue ?: 0.0
 
-    val progress = if (targetValue > 0f) {
-        (currentValue / targetValue).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
+    val progress = activity.progress
+        ?: if (targetValue > 0.0) {
+            (currentValue / targetValue)
+                .toFloat()
+                .coerceIn(0f, 1f)
+        } else {
+            0f
+        }
 
-    val progressText = if (targetValue > 0f) {
+    val progressText = if (targetValue > 0.0) {
         "${currentValue.toCleanText()} / ${targetValue.toCleanText()} ${activity.unit.orEmpty()}"
     } else {
-        "No target set"
+        "Chưa đặt mục tiêu"
     }
 
+    ProgressBlock(
+        leadingText = progressText,
+        trailingText = progress.toPercentageText(),
+        progress = progress
+    )
+}
+
+@Composable
+private fun ChecklistProgressSection(
+    activity: ActivityUiModel
+) {
+    val progress = activity.progress
+        ?: if (activity.totalSubtaskCount > 0) {
+            (activity.completedSubtaskCount.toFloat() / activity.totalSubtaskCount.toFloat())
+                .coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+
+    ProgressBlock(
+        leadingText = "${activity.completedSubtaskCount} / ${activity.totalSubtaskCount} subtasks",
+        trailingText = progress.toPercentageText(),
+        progress = progress
+    )
+}
+
+@Composable
+private fun ProgressBlock(
+    leadingText: String,
+    trailingText: String,
+    progress: Float
+) {
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -190,13 +195,13 @@ private fun ActivityProgressSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = progressText,
+                text = leadingText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Text(
-                text = "${(progress * 100).toInt()}%",
+                text = trailingText,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -217,13 +222,21 @@ private fun ActivityCardFooter(
 ) {
     val footerItems = buildList {
         if (activity.isHabit && activity.streakCount != null) {
-            add("${activity.streakCount} day streak")
+            add("${activity.streakCount} ${stringResource(R1.string.day)} streak")
         }
 
-        if (activity.trackingType == ActivityTrackingType.YES_NO) {
-            add("Yes / No")
-        } else {
-            add("Measurable")
+        when {
+            activity.trackingType == ActivityUiTrackingType.YES_NO -> {
+                add("${stringResource(R1.string.yes)} / ${stringResource(R1.string.no)}")
+            }
+
+            activity.measurableMode == ActivityUiMeasurableMode.NUMERIC -> {
+                add(stringResource(R1.string.measurable))
+            }
+
+            activity.measurableMode == ActivityUiMeasurableMode.CHECKLIST -> {
+                add(stringResource(R1.string.checklist))
+            }
         }
     }
 
@@ -258,153 +271,20 @@ private fun ActivityTypeLabel(
                 horizontal = 8.dp,
                 vertical = 4.dp
             ),
-            text = if (isHabit) "Habit" else "Task",
+            text = if (isHabit) stringResource(R1.string.habit) else stringResource(R1.string.task),
             style = MaterialTheme.typography.labelSmall
         )
     }
 }
 
-private fun Float.toCleanText(): String {
-    return if (this % 1f == 0f) {
+private fun Double.toCleanText(): String {
+    return if (this % 1.0 == 0.0) {
         this.toInt().toString()
     } else {
         this.toString()
     }
 }
 
-@Preview(
-    name = "ActivityCard - Light",
-    showBackground = true
-)
-@Composable
-private fun ActivityCardLightPreview() {
-    AppTheme(
-        darkTheme = false,
-        dynamicColor = false
-    ) {
-        Surface(
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "1",
-                        title = "Read book",
-                        description = "Continue reading the Android UI chapter.",
-                        isHabit = true,
-                        trackingType = ActivityTrackingType.MEASURABLE,
-                        category = "Study",
-                        lifeArea = "Personal Growth",
-                        currentValue = 20f,
-                        targetValue = 30f,
-                        unit = "pages",
-                        streakCount = 7,
-                        repeatText = "Daily"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "2",
-                        title = "Submit assignment",
-                        isHabit = false,
-                        trackingType = ActivityTrackingType.YES_NO,
-                        category = "School",
-                        dueText = "Today"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "3",
-                        title = "Drink water",
-                        isHabit = true,
-                        trackingType = ActivityTrackingType.YES_NO,
-                        isCompleted = true,
-                        category = "Health",
-                        streakCount = 5,
-                        repeatText = "Daily"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-            }
-        }
-    }
-}
-
-@Preview(
-    name = "ActivityCard - Dark",
-    showBackground = true,
-    uiMode = Configuration.UI_MODE_NIGHT_YES
-)
-@Composable
-private fun ActivityCardDarkPreview() {
-    AppTheme(
-        darkTheme = true,
-        dynamicColor = false
-    ) {
-        Surface(
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "1",
-                        title = "Read book",
-                        description = "Continue reading the Android UI chapter.",
-                        isHabit = true,
-                        trackingType = ActivityTrackingType.MEASURABLE,
-                        category = "Study",
-                        lifeArea = "Personal Growth",
-                        currentValue = 20f,
-                        targetValue = 30f,
-                        unit = "pages",
-                        streakCount = 7,
-                        repeatText = "Daily"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "2",
-                        title = "Submit assignment",
-                        isHabit = false,
-                        trackingType = ActivityTrackingType.YES_NO,
-                        category = "School",
-                        dueText = "Today"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-
-                ActivityCard(
-                    activity = ActivityUiModel(
-                        id = "3",
-                        title = "Drink water",
-                        isHabit = true,
-                        trackingType = ActivityTrackingType.YES_NO,
-                        isCompleted = true,
-                        category = "Health",
-                        streakCount = 5,
-                        repeatText = "Daily"
-                    ),
-                    onClick = {},
-                    onCheckedChange = {}
-                )
-            }
-        }
-    }
+private fun Float.toPercentageText(): String {
+    return "${(this * 100).roundToInt()}%"
 }
