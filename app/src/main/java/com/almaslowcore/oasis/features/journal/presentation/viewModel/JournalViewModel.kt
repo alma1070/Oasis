@@ -6,6 +6,7 @@ import com.almaslowcore.oasis.features.journal.domain.model.JournalEntry
 import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalDateFilterState
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalDaySectionUiState
+import com.almaslowcore.oasis.features.activity.domain.repository.ActivityRepository
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalEntryUiState
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalFilterMode
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalUiState
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -36,7 +38,8 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class JournalViewModel @Inject constructor(
-    private val journalRepository: JournalRepository
+    private val journalRepository: JournalRepository,
+    private val activityRepository: ActivityRepository
 ) : ViewModel() {
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
@@ -50,50 +53,63 @@ class JournalViewModel @Inject constructor(
             .flatMapLatest { filterState ->
                 val dateRange = filterState.toDateRange(zoneId = zoneId)
 
-                journalRepository
-                    .observeEntriesBetween(
+                combine(
+                    journalRepository.observeEntriesBetween(
                         startTime = dateRange.startTimeMillis,
                         endTime = dateRange.endTimeMillis
+                    ),
+                    activityRepository.observeActivitiesForPeriod(
+                        startDate = LocalDate.ofInstant(
+                            Instant.ofEpochMilli(dateRange.startTimeMillis),
+                            zoneId
+                        ).toString(),
+                        endDate = LocalDate.ofInstant(
+                            Instant.ofEpochMilli(dateRange.endTimeMillis),
+                            zoneId
+                        ).toString()
                     )
-                    .map { entries ->
+                ) { entries, activities ->
+                    val activityMap = activities.associateBy { it.activity.id }
+
+                    JournalUiState(
+                        selectedDate = filterState.selectedDate,
+                        filterMode = filterState.filterMode,
+                        dateRange = dateRange,
+                        title = buildTitle(filterState),
+                        subtitle = buildSubtitle(filterState),
+                        daySections = entries.toDaySections(
+                            filterMode = filterState.filterMode,
+                            activityMap = activityMap
+                        ),
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
+                .onStart {
+                    emit(
                         JournalUiState(
                             selectedDate = filterState.selectedDate,
                             filterMode = filterState.filterMode,
                             dateRange = dateRange,
                             title = buildTitle(filterState),
                             subtitle = buildSubtitle(filterState),
-                            daySections = entries.toDaySections(
-                                filterMode = filterState.filterMode
-                            ),
+                            isLoading = true
+                        )
+                    )
+                }
+                .catch { throwable ->
+                    emit(
+                        JournalUiState(
+                            selectedDate = filterState.selectedDate,
+                            filterMode = filterState.filterMode,
+                            dateRange = dateRange,
+                            title = buildTitle(filterState),
+                            subtitle = buildSubtitle(filterState),
                             isLoading = false,
-                            errorMessage = null
+                            errorMessage = throwable.message ?: "Something went wrong"
                         )
-                    }
-                    .onStart {
-                        emit(
-                            JournalUiState(
-                                selectedDate = filterState.selectedDate,
-                                filterMode = filterState.filterMode,
-                                dateRange = dateRange,
-                                title = buildTitle(filterState),
-                                subtitle = buildSubtitle(filterState),
-                                isLoading = true
-                            )
-                        )
-                    }
-                    .catch { throwable ->
-                        emit(
-                            JournalUiState(
-                                selectedDate = filterState.selectedDate,
-                                filterMode = filterState.filterMode,
-                                dateRange = dateRange,
-                                title = buildTitle(filterState),
-                                subtitle = buildSubtitle(filterState),
-                                isLoading = false,
-                                errorMessage = throwable.message ?: "Something went wrong"
-                            )
-                        )
-                    }
+                    )
+                }
             }
             .stateIn(
                 scope = viewModelScope,
@@ -132,7 +148,8 @@ class JournalViewModel @Inject constructor(
     }
 
     private fun List<JournalEntry>.toDaySections(
-        filterMode: JournalFilterMode
+        filterMode: JournalFilterMode,
+        activityMap: Map<String, com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel>
     ): List<JournalDaySectionUiState> {
         val groupedEntries = groupBy { entry ->
             entry.dateTime.toLocalDate()
@@ -144,12 +161,14 @@ class JournalViewModel @Inject constructor(
                 JournalDaySectionUiState(
                     date = date,
                     title = buildSectionTitle(date, filterMode),
-                    entries = entries.map { it.toUiState() }
+                    entries = entries.map { entry ->
+                        entry.toUiState(activityMap[entry.relatedActivityId]?.activity?.title)
+                    }
                 )
             }
     }
 
-    private fun JournalEntry.toUiState(): JournalEntryUiState {
+    private fun JournalEntry.toUiState(activityTitle: String? = null): JournalEntryUiState {
         return JournalEntryUiState(
             id = id,
             moodType = moodType,
@@ -157,7 +176,7 @@ class JournalViewModel @Inject constructor(
             moodEmoji = moodType.emoji,
             timeText = dateTime.toLocalTimeText(),
             relatedActivityId = relatedActivityId,
-            relatedActivityTitle = relatedActivityTitle,
+            relatedActivityTitle = activityTitle ?: relatedActivityTitle,
             note = note
         )
     }

@@ -17,7 +17,7 @@ interface JournalRepository {
         moodType: MoodType,
         note: String,
         dateTime: Long,
-        relatedActivityId: Long? = null
+        relatedActivityId: String? = null
     ): Long
 
     suspend fun updateEntry(entry: JournalEntry)

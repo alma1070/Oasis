@@ -31,7 +31,7 @@ object DatabaseModule {
             OasisDatabase::class.java,
             "oasis_database"
         )
-            .fallbackToDestructiveMigration(false)
+            .fallbackToDestructiveMigration()
             .build()
     }
 

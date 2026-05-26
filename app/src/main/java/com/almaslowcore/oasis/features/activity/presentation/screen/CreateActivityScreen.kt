@@ -52,6 +52,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.text.lowercase
 import com.almaslowcore.oasis.R
+import com.almaslowcore.oasis.features.planning.presentation.domain.model.LifeArea
 
 @Composable
 fun CreateActivityRoute(
@@ -149,7 +150,7 @@ fun CreateActivityScreen(
     onDeleteSubtask: (String) -> Unit,
 
     onCategorySelected: (String?) -> Unit,
-    onLifeAreaSelected: (String?) -> Unit,
+    onLifeAreaSelected: (LifeArea?) -> Unit,
 
     onTimeOfDayChange: (TimeOfDay) -> Unit,
     onSpecificTimeSelected: (Int) -> Unit,
@@ -451,8 +452,8 @@ private fun MeasurableSection(
 private fun ClassificationSection(
     categoryId: String?,
     onCategorySelected: (String?) -> Unit,
-    lifeAreaId: String?,
-    onLifeAreaSelected: (String?) -> Unit
+    lifeAreaId: LifeArea?,
+    onLifeAreaSelected: (LifeArea?) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -465,10 +466,14 @@ private fun ClassificationSection(
         )
 
         OasisDropdown(
-            label = "Life area",
-            options = listOf("Personal Growth", "Health", "Career", "Mind", "Environment"),
-            selectedOption = lifeAreaId ?: "",
-            onOptionSelected = { onLifeAreaSelected(it) }
+            modifier = Modifier.fillMaxWidth(),
+            label = "Life Area",
+            selectedOption = lifeAreaId?.displayName ?: "Select Life Area",
+            options = LifeArea.entries.map { it.displayName },
+            onOptionSelected = { selectedName ->
+                val selectedEnum = LifeArea.entries.find { it.displayName == selectedName }
+                onLifeAreaSelected(selectedEnum)
+            }
         )
     }
 }

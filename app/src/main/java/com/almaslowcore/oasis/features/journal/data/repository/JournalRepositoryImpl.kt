@@ -39,7 +39,7 @@ class JournalRepositoryImpl @Inject constructor(
         moodType: MoodType,
         note: String,
         dateTime: Long,
-        relatedActivityId: Long?
+        relatedActivityId: String?
     ): Long {
         val now = System.currentTimeMillis()
 

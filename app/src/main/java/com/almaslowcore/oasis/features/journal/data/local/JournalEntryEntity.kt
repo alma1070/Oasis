@@ -42,7 +42,7 @@ data class JournalEntryEntity(
      * Optional related activity.
      * MVP rule: one journal entry can link to at most one activity.
      */
-    val relatedActivityId: Long? = null,
+    val relatedActivityId: String? = null,
 
     /**
      * Timestamp when this entry was created.

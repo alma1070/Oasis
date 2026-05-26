@@ -19,7 +19,7 @@ import com.almaslowcore.oasis.features.journal.data.local.JournalEntryEntity
         ActivitySubtaskLogEntity::class,
         JournalEntryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(ActivityTypeConverters::class)

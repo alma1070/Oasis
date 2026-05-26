@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityDetailModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
 import com.almaslowcore.oasis.features.activity.domain.model.CreateActivityRequest
 import com.almaslowcore.oasis.features.activity.domain.repository.ActivityRepository
@@ -41,10 +42,13 @@ import com.almaslowcore.oasis.features.activity.presentation.util.filterByTimeOf
 import com.almaslowcore.oasis.features.activity.presentation.util.groupByMode
 import com.almaslowcore.oasis.features.activity.presentation.util.buildActivityDateRange
 import com.almaslowcore.oasis.features.activity.presentation.util.toIsoDateString
-import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel
+import com.almaslowcore.oasis.features.journal.domain.model.MoodType
+import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
+
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
-    private val repository: ActivityRepository
+    private val repository: ActivityRepository,
+    private val journalRepository: JournalRepository
 ) : ViewModel() {
     private val filterState = MutableStateFlow(
         ActivityFilterState()
@@ -329,7 +333,8 @@ class ActivityViewModel @Inject constructor(
 
     fun completeYesNoActivity(
         activityId: String,
-        note: String
+        note: String,
+        mood: MoodType? = null
     ) {
         viewModelScope.launch {
             runCatching {
@@ -339,6 +344,15 @@ class ActivityViewModel @Inject constructor(
                     isCompleted = true,
                     note = note
                 )
+
+                mood?.let {
+                    journalRepository.createEntry(
+                        moodType = it,
+                        note = note,
+                        dateTime = System.currentTimeMillis(),
+                        relatedActivityId = activityId
+                    )
+                }
             }.onSuccess {
                 dismissProgressDialog()
             }.onFailure { throwable ->
@@ -354,7 +368,8 @@ class ActivityViewModel @Inject constructor(
     fun saveNumericProgress(
         activityId: String,
         value: Double,
-        note: String
+        note: String,
+        mood: MoodType? = null
     ) {
         val activity = uiState.value.activities
             .firstOrNull { it.id == activityId }
@@ -379,6 +394,15 @@ class ActivityViewModel @Inject constructor(
                     isCompleted = shouldComplete,
                     note = note
                 )
+
+                mood?.let {
+                    journalRepository.createEntry(
+                        moodType = it,
+                        note = note,
+                        dateTime = System.currentTimeMillis(),
+                        relatedActivityId = activityId
+                    )
+                }
             }.onSuccess {
                 dismissProgressDialog()
             }.onFailure { throwable ->
@@ -394,7 +418,8 @@ class ActivityViewModel @Inject constructor(
     fun saveChecklistProgress(
         activityId: String,
         completedSubtaskIds: Set<String>,
-        note: String
+        note: String,
+        mood: MoodType? = null
     ) {
         val activity = uiState.value.activities
             .firstOrNull { it.id == activityId }
@@ -426,6 +451,15 @@ class ActivityViewModel @Inject constructor(
                     isCompleted = shouldComplete,
                     note = note
                 )
+
+                mood?.let {
+                    journalRepository.createEntry(
+                        moodType = it,
+                        note = note,
+                        dateTime = System.currentTimeMillis(),
+                        relatedActivityId = activityId
+                    )
+                }
             }.onSuccess {
                 dismissProgressDialog()
             }.onFailure { throwable ->
@@ -547,7 +581,7 @@ class ActivityViewModel @Inject constructor(
                     targetValue = formState.targetValue,
                     unit = formState.unit,
                     categoryId = formState.categoryId,
-                    lifeAreaId = formState.lifeAreaId,
+                    lifeAreaId = formState.lifeAreaId?.name,
                     timeOfDay = formState.timeOfDay,
                     specificTimeMinutes = formState.specificTimeMinutes,
                     repeatEnabled = formState.repeatEnabled,

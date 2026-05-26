@@ -7,7 +7,6 @@ import com.almaslowcore.oasis.core.navigation.OasisDestination
 import com.almaslowcore.oasis.features.journal.domain.model.JournalEntry
 import com.almaslowcore.oasis.features.journal.domain.model.MoodType
 import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
-import com.almaslowcore.oasis.features.journal.presentation.state.ActivitySummaryUiState
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalEntryFormEvent
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalEntryFormMode
 import com.almaslowcore.oasis.features.journal.presentation.state.JournalFormState
@@ -49,26 +48,17 @@ class JournalEntryFormViewModel @Inject constructor(
     private var originalEntry: JournalEntry? = null
 
     init {
-        when (val currentMode = mode) {
-            JournalEntryFormMode.Create -> {
-                loadActivitiesForDate(_formState.value.selectedDate)
-            }
-
-            is JournalEntryFormMode.Edit -> {
-                loadEntryForEdit(currentMode.entryId)
-            }
+        if (mode is JournalEntryFormMode.Edit) {
+            loadEntryForEdit(mode.entryId)
         }
     }
 
     fun onDateChange(date: LocalDate) {
         _formState.update {
             it.copy(
-                selectedDate = date,
-                relatedActivityId = null
+                selectedDate = date
             )
         }
-
-        loadActivitiesForDate(date)
     }
 
     fun onTimeChange(time: LocalTime) {
@@ -80,12 +70,6 @@ class JournalEntryFormViewModel @Inject constructor(
     fun onMoodSelected(mood: MoodType) {
         _formState.update {
             it.copy(selectedMood = mood)
-        }
-    }
-
-    fun onRelatedActivitySelected(activityId: Long?) {
-        _formState.update {
-            it.copy(relatedActivityId = activityId)
         }
     }
 
@@ -179,14 +163,11 @@ class JournalEntryFormViewModel @Inject constructor(
                     selectedDate = localDateTime.toLocalDate(),
                     selectedTime = localDateTime.toLocalTime(),
                     selectedMood = entry.moodType,
-                    relatedActivityId = entry.relatedActivityId,
                     note = entry.note,
                     noteError = null,
                     isSaving = false
                 )
             }
-
-            loadActivitiesForDate(localDateTime.toLocalDate())
         }
     }
 
@@ -197,7 +178,7 @@ class JournalEntryFormViewModel @Inject constructor(
             moodType = state.selectedMood,
             note = state.note.trim(),
             dateTime = state.toDateTimeMillis(),
-            relatedActivityId = state.relatedActivityId
+            relatedActivityId = null
         )
     }
 
@@ -211,7 +192,7 @@ class JournalEntryFormViewModel @Inject constructor(
                 moodType = state.selectedMood,
                 note = state.note.trim(),
                 dateTime = state.toDateTimeMillis(),
-                relatedActivityId = state.relatedActivityId
+                relatedActivityId = entryToUpdate.relatedActivityId
             )
         )
     }
@@ -224,20 +205,4 @@ class JournalEntryFormViewModel @Inject constructor(
             .toEpochMilli()
     }
 
-    private fun loadActivitiesForDate(date: LocalDate) {
-        /**
-         * Step for later:
-         * Inject ActivityRepository and load activities for the selected date.
-         *
-         * For now, keep the dropdown empty but valid.
-         * This means RelatedActivityDropdown will show:
-         * - No activity
-         * - No activities for this day
-         */
-        _formState.update {
-            it.copy(
-                availableActivities = emptyList<ActivitySummaryUiState>()
-            )
-        }
-    }
 }

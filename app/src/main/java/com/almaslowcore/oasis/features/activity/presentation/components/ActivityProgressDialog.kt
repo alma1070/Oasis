@@ -29,31 +29,34 @@ import com.almaslowcore.oasis.R
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiMeasurableMode
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiModel
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityUiTrackingType
+import com.almaslowcore.oasis.features.journal.domain.model.MoodType
+import com.almaslowcore.oasis.features.journal.presentation.component.MoodSelectorRow
+import androidx.compose.material3.Switch
 
 @Composable
 fun ActivityProgressDialog(
     activity: ActivityUiModel,
     onDismiss: () -> Unit,
-    onCompleteYesNo: (activityId: String, note: String) -> Unit,
-    onSaveNumeric: (activityId: String, value: Double, note: String) -> Unit,
-    onSaveChecklist: (activityId: String, completedSubtaskIds: Set<String>, note: String) -> Unit
+    onCompleteYesNo: (activityId: String, note: String, mood: MoodType?) -> Unit,
+    onSaveNumeric: (activityId: String, value: Double, note: String, mood: MoodType?) -> Unit,
+    onSaveChecklist: (activityId: String, completedSubtaskIds: Set<String>, note: String, mood: MoodType?) -> Unit
 ) {
-    when (activity.trackingType) {
-        ActivityUiTrackingType.YES_NO -> {
+    when {
+        activity.trackingType == ActivityUiTrackingType.YES_NO -> {
             YesNoProgressDialog(
                 activity = activity,
                 onDismiss = onDismiss,
                 onComplete = onCompleteYesNo
             )
         }
-        ActivityUiTrackingType.MEASURABLE if activity.measurableMode == ActivityUiMeasurableMode.NUMERIC -> {
+        activity.trackingType == ActivityUiTrackingType.MEASURABLE && activity.measurableMode == ActivityUiMeasurableMode.NUMERIC -> {
             NumericProgressDialog(
                 activity = activity,
                 onDismiss = onDismiss,
                 onSave = onSaveNumeric
             )
         }
-        ActivityUiTrackingType.MEASURABLE if activity.measurableMode == ActivityUiMeasurableMode.CHECKLIST -> {
+        activity.trackingType == ActivityUiTrackingType.MEASURABLE && activity.measurableMode == ActivityUiMeasurableMode.CHECKLIST -> {
             ChecklistProgressDialog(
                 activity = activity,
                 onDismiss = onDismiss,
@@ -73,11 +76,14 @@ fun ActivityProgressDialog(
 private fun YesNoProgressDialog(
     activity: ActivityUiModel,
     onDismiss: () -> Unit,
-    onComplete: (activityId: String, note: String) -> Unit
+    onComplete: (activityId: String, note: String, mood: MoodType?) -> Unit
 ) {
     var note by remember(activity.id) {
         mutableStateOf("")
     }
+
+    var addMood by remember { mutableStateOf(false) }
+    var selectedMood by remember { mutableStateOf(MoodType.NEUTRAL) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -85,18 +91,36 @@ private fun YesNoProgressDialog(
             Text(text = activity.title)
         },
         text = {
-            OutlinedTextField(
-                value = note,
-                onValueChange = {
-                    note = it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(text = stringResource(R.string.note))
-                },
-                minLines = 3,
-                maxLines = 5
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Add Mood", style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = addMood, onCheckedChange = { addMood = it })
+                }
+
+                if (addMood) {
+                    MoodSelectorRow(
+                        selectedMood = selectedMood,
+                        onMoodSelected = { selectedMood = it }
+                    )
+                }
+
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = {
+                        note = it
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Text(text = if (addMood) "What happened?" else stringResource(R.string.note))
+                    },
+                    minLines = 3,
+                    maxLines = 5
+                )
+            }
         },
         dismissButton = {
             TextButton(
@@ -110,7 +134,8 @@ private fun YesNoProgressDialog(
                 onClick = {
                     onComplete(
                         activity.id,
-                        note.trim()
+                        note.trim(),
+                        if (addMood) selectedMood else null
                     )
                 }
             ) {
@@ -124,7 +149,7 @@ private fun YesNoProgressDialog(
 private fun NumericProgressDialog(
     activity: ActivityUiModel,
     onDismiss: () -> Unit,
-    onSave: (activityId: String, value: Double, note: String) -> Unit
+    onSave: (activityId: String, value: Double, note: String, mood: MoodType?) -> Unit
 ) {
     var valueText by remember(activity.id) {
         mutableStateOf(
@@ -137,6 +162,9 @@ private fun NumericProgressDialog(
     var note by remember(activity.id) {
         mutableStateOf("")
     }
+
+    var addMood by remember { mutableStateOf(false) }
+    var selectedMood by remember { mutableStateOf(MoodType.NEUTRAL) }
 
     val value = valueText.toProgressDoubleOrNull()
 
@@ -183,6 +211,22 @@ private fun NumericProgressDialog(
                     )
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Add Mood", style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = addMood, onCheckedChange = { addMood = it })
+                }
+
+                if (addMood) {
+                    MoodSelectorRow(
+                        selectedMood = selectedMood,
+                        onMoodSelected = { selectedMood = it }
+                    )
+                }
+
                 OutlinedTextField(
                     value = note,
                     onValueChange = {
@@ -190,7 +234,7 @@ private fun NumericProgressDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = {
-                        Text(text = stringResource(R.string.note))
+                        Text(text = if (addMood) "What happened?" else stringResource(R.string.note))
                     },
                     minLines = 3,
                     maxLines = 5
@@ -213,7 +257,8 @@ private fun NumericProgressDialog(
                     onSave(
                         activity.id,
                         progressValue,
-                        note.trim()
+                        note.trim(),
+                        if (addMood) selectedMood else null
                     )
                 }
             ) {
@@ -250,7 +295,7 @@ private fun NumericSupportingText(
 private fun ChecklistProgressDialog(
     activity: ActivityUiModel,
     onDismiss: () -> Unit,
-    onSave: (activityId: String, completedSubtaskIds: Set<String>, note: String) -> Unit
+    onSave: (activityId: String, completedSubtaskIds: Set<String>, note: String, mood: MoodType?) -> Unit
 ) {
     var checkedSubtaskIds by remember(activity.id) {
         mutableStateOf(
@@ -264,6 +309,9 @@ private fun ChecklistProgressDialog(
     var note by remember(activity.id) {
         mutableStateOf("")
     }
+
+    var addMood by remember { mutableStateOf(false) }
+    var selectedMood by remember { mutableStateOf(MoodType.NEUTRAL) }
 
     val sortedSubtasks = remember(activity.id, activity.subtasks) {
         activity.subtasks.sortedBy { it.orderIndex }
@@ -320,6 +368,22 @@ private fun ChecklistProgressDialog(
                     }
                 }
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Add Mood", style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = addMood, onCheckedChange = { addMood = it })
+                }
+
+                if (addMood) {
+                    MoodSelectorRow(
+                        selectedMood = selectedMood,
+                        onMoodSelected = { selectedMood = it }
+                    )
+                }
+
                 OutlinedTextField(
                     value = note,
                     onValueChange = {
@@ -327,7 +391,7 @@ private fun ChecklistProgressDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = {
-                        Text(text = "Ghi chú")
+                        Text(text = if (addMood) "What happened?" else "Ghi chú")
                     },
                     minLines = 3,
                     maxLines = 5
@@ -347,7 +411,8 @@ private fun ChecklistProgressDialog(
                     onSave(
                         activity.id,
                         checkedSubtaskIds,
-                        note.trim()
+                        note.trim(),
+                        if (addMood) selectedMood else null
                     )
                 }
             ) {

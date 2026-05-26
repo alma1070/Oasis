@@ -10,9 +10,6 @@ data class JournalFormState(
 
     val selectedMood: MoodType = MoodType.NEUTRAL,
 
-    val relatedActivityId: Long? = null,
-    val availableActivities: List<ActivitySummaryUiState> = emptyList(),
-
     val note: String = "",
     val noteError: String? = null,
 

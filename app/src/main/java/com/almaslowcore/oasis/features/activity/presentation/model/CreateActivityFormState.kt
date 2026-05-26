@@ -6,6 +6,7 @@ import com.almaslowcore.oasis.features.activity.domain.model.MeasurableMode
 import com.almaslowcore.oasis.features.activity.domain.model.RepeatEndType
 import com.almaslowcore.oasis.features.activity.domain.model.RepeatUnit
 import com.almaslowcore.oasis.features.activity.domain.model.TimeOfDay
+import com.almaslowcore.oasis.features.planning.presentation.domain.model.LifeArea
 
 data class CreateActivitySubtaskDraft(
     val id: String,
@@ -31,7 +32,7 @@ data class CreateActivityFormState(
     val subtaskInput: String = "",
 
     val categoryId: String? = null,
-    val lifeAreaId: String? = null,
+    val lifeAreaId: LifeArea? = null,
 
     val timeOfDay: TimeOfDay = TimeOfDay.ANYTIME,
     val specificTimeMinutes: Int? = null,

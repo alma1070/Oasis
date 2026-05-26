@@ -21,7 +21,7 @@ data class JournalEntry(
      * MVP rule:
      * One journal mood entry can be linked to at most one activity.
      */
-    val relatedActivityId: Long? = null,
+    val relatedActivityId: String? = null,
 
     /**
      * This is mainly for displaying metadata in the UI.

@@ -31,6 +31,7 @@ import com.almaslowcore.oasis.features.activity.presentation.model.ActivityPerio
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityScreenUiState
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityTimeOfDayFilter
 import com.almaslowcore.oasis.features.activity.presentation.viewModel.ActivityViewModel
+import com.almaslowcore.oasis.features.journal.domain.model.MoodType
 import com.almaslowcore.oasis.ui.components.buttons.Fab
 import com.almaslowcore.oasis.ui.components.layout.OasisScreen
 import java.time.LocalDate
@@ -96,9 +97,9 @@ private fun ActivityScreenContent(
     onDismissDatePicker: () -> Unit,
 
     onDismissProgressDialog: () -> Unit,
-    onCompleteYesNoActivity: (String, String) -> Unit,
-    onSaveNumericProgress: (String, Double, String) -> Unit,
-    onSaveChecklistProgress: (String, Set<String>, String) -> Unit,
+    onCompleteYesNoActivity: (String, String, MoodType?) -> Unit,
+    onSaveNumericProgress: (String, Double, String, MoodType?) -> Unit,
+    onSaveChecklistProgress: (String, Set<String>, String, MoodType?) -> Unit,
 
     modifier: Modifier = Modifier
 ) {

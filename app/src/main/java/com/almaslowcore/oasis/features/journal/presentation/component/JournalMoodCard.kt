@@ -154,7 +154,7 @@ private fun MoodIcon(
 
 @Composable
 private fun RelatedActivityText(
-    relatedActivityId: Long?,
+    relatedActivityId: String?,
     relatedActivityTitle: String?,
     modifier: Modifier = Modifier
 ) {

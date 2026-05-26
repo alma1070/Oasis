@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalLocale
 import com.almaslowcore.oasis.features.journal.presentation.component.JournalDateTimeSection
 import com.almaslowcore.oasis.features.journal.presentation.component.JournalNoteField
 import com.almaslowcore.oasis.features.journal.presentation.component.MoodSelectorRow
-import com.almaslowcore.oasis.features.journal.presentation.component.RelatedActivityDropdown
 import java.time.LocalDate
 import java.time.LocalTime
 import androidx.compose.runtime.LaunchedEffect
@@ -100,7 +99,6 @@ fun JournalEntryFormScreen(
         onDateSelected = viewModel::onDateChange,
         onTimeSelected = viewModel::onTimeChange,
         onMoodSelected = viewModel::onMoodSelected,
-        onRelatedActivitySelected = viewModel::onRelatedActivitySelected,
         onNoteChange = viewModel::onNoteChange,
         onCancelClick = viewModel::onCancelClick,
         onSaveClick = viewModel::onSaveClick,
@@ -117,7 +115,6 @@ private fun JournalEntryFormContent(
     onDateSelected: (LocalDate) -> Unit,
     onTimeSelected: (LocalTime) -> Unit,
     onMoodSelected: (MoodType) -> Unit,
-    onRelatedActivitySelected: (Long?) -> Unit,
     onNoteChange: (String) -> Unit,
     onCancelClick: () -> Unit,
     onSaveClick: () -> Unit,
@@ -145,12 +142,6 @@ private fun JournalEntryFormContent(
         MoodSelectorRow(
             selectedMood = formState.selectedMood,
             onMoodSelected = onMoodSelected
-        )
-
-        RelatedActivityDropdown(
-            selectedActivityId = formState.relatedActivityId,
-            availableActivities = formState.availableActivities,
-            onActivitySelected = onRelatedActivitySelected
         )
 
         JournalNoteField(
@@ -239,32 +230,6 @@ private fun MoodSection(
     }
 }
 
-@Composable
-private fun RelatedActivitySection(
-    formState: JournalFormState,
-    onRelatedActivityClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val selectedActivityTitle = formState.availableActivities
-        .firstOrNull { it.id == formState.relatedActivityId }
-        ?.title
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        SectionTitle(text = "Related activity")
-
-        AssistChip(
-            onClick = onRelatedActivityClick,
-            label = {
-                Text(
-                    text = selectedActivityTitle ?: "No activity"
-                )
-            }
-        )
-    }
-}
 
 @Composable
 private fun NoteSection(

@@ -30,7 +30,7 @@ data class JournalEntryUiState(
     val moodLabel: String,
     val moodEmoji: String,
     val timeText: String,
-    val relatedActivityId: Long?,
-    val relatedActivityTitle: String?,
+    val relatedActivityId: String? = null,
+    val relatedActivityTitle: String? = null,
     val note: String
 )

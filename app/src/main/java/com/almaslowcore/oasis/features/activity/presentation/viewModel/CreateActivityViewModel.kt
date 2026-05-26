@@ -20,6 +20,7 @@ import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivit
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivitySubtaskDraft
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityUiState
 import com.almaslowcore.oasis.features.activity.presentation.model.CreateActivityValidationResult
+import com.almaslowcore.oasis.features.planning.presentation.domain.model.LifeArea
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -228,10 +229,8 @@ class CreateActivityViewModel @Inject constructor(
         }
     }
 
-    fun onLifeAreaSelected(lifeAreaId: String?) {
-        updateForm {
-            it.copy(lifeAreaId = lifeAreaId)
-        }
+    fun onLifeAreaSelected(lifeArea: LifeArea?) {
+        _uiState.update { it.copy(formState = it.formState.copy(lifeAreaId = lifeArea)) }
     }
 
     fun onTimeOfDayChange(timeOfDay: TimeOfDay) {
@@ -489,7 +488,7 @@ private fun CreateActivityFormState.toCreateActivityRequest(): CreateActivityReq
         unit = if (shouldUseNumeric) unit.trim().ifBlank { null } else null,
 
         categoryId = categoryId,
-        lifeAreaId = lifeAreaId,
+        lifeAreaId = lifeAreaId?.name,
 
         timeOfDay = timeOfDay,
         specificTimeMinutes = if (timeOfDay == TimeOfDay.SPECIFIC_TIME) {
