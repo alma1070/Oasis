@@ -5,6 +5,10 @@
     <string name="welcome_message">
         Welcome back to Oasis
     </string>
+
+    <string name="home_greeting">Welcome back to Oasis 🌿!</string>
+    <string name="today_activity_progress">Today\'s Activity Progress</string>
+
     <string name="home">Home</string>
     <string name="activities">Activities</string>
     <string name="journal">Journal</string>

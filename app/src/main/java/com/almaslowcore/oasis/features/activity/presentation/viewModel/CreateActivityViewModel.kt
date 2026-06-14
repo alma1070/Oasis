@@ -60,6 +60,8 @@ class CreateActivityViewModel @Inject constructor(
     val titleTextState = TextFieldState()
     val descriptionTextState = TextFieldState()
 
+    val dueDateTextState = TextFieldState()
+
     val targetValueTextState = TextFieldState()
     val subtaskInputTextState = TextFieldState()
 
@@ -77,6 +79,7 @@ class CreateActivityViewModel @Inject constructor(
                     val newFormState = currentState.formState.copy(
                         title = textSnapshot.title,
                         description = textSnapshot.description,
+                        dueDate = textSnapshot.dueDate,
                         targetValueText = textSnapshot.targetValueText,
                         subtaskInput = textSnapshot.subtaskInput,
                         repeatIntervalText = textSnapshot.repeatIntervalText,
@@ -100,6 +103,7 @@ class CreateActivityViewModel @Inject constructor(
         return CreateActivityTextFieldSnapshot(
             title = titleTextState.text.toString(),
             description = descriptionTextState.text.toString(),
+            dueDate = dueDateTextState.text.toString(),
             targetValueText = targetValueTextState.text.toString(),
             subtaskInput = subtaskInputTextState.text.toString(),
             repeatIntervalText = repeatIntervalTextState.text.toString(),
@@ -124,11 +128,8 @@ class CreateActivityViewModel @Inject constructor(
         )
     }
 
-
-    fun onActivityTypeChange(activityType: ActivityType) {
-        updateForm {
-            it.copy(activityType = activityType)
-        }
+    fun onDueDateChange(date: String) {
+        updateForm { it.copy(dueDate = date) }
     }
 
     fun onTrackingTypeChange(trackingType: ActivityTrackingType) {
@@ -252,15 +253,33 @@ class CreateActivityViewModel @Inject constructor(
         }
     }
 
-    fun onRepeatEnabledChange(enabled: Boolean) {
-        if (enabled && repeatStartDateTextState.text.isBlank()) {
-            repeatStartDateTextState.setTextAndPlaceCursorAtEnd(todayIsoDate())
-        }
+    fun onActivityTypeChange(activityType: ActivityType) {
         updateForm { state ->
-            state.copy(
-                repeatEnabled = enabled,
-                repeatStartDate = repeatStartDateTextState.text.toString()
-            )
+            when (activityType) {
+                ActivityType.HABIT -> {
+                    // Clear Task-specific fields
+                    dueDateTextState.clearText()
+
+                    // Ensure Habit-specific defaults exist
+                    if (repeatStartDateTextState.text.isBlank()) {
+                        repeatStartDateTextState.setTextAndPlaceCursorAtEnd(todayIsoDate())
+                    }
+                }
+                ActivityType.TASK -> {
+                    // Clear Habit-specific fields
+                    repeatIntervalTextState.setTextAndPlaceCursorAtEnd("1")
+                    repeatStartDateTextState.clearText()
+                    repeatEndDateTextState.clearText()
+                    repeatEndOccurrencesTextState.clearText()
+
+                    // Optional: Set default due date to today if empty
+                    if (dueDateTextState.text.isBlank()) {
+                        val today = todayIsoDate()
+                        dueDateTextState.setTextAndPlaceCursorAtEnd(today)
+                    }
+                }
+            }
+            state.copy(activityType = activityType)
         }
     }
 
@@ -336,11 +355,43 @@ class CreateActivityViewModel @Inject constructor(
 private fun validateCreateActivityForm(
     state: CreateActivityFormState
 ): CreateActivityValidationResult {
+    // title check
     val titleError = if (state.title.isBlank()) {
         "Title is required."
     } else {
         null
     }
+
+    // Task logic: Due Date is required
+    val dueDateError = if (state.activityType == ActivityType.TASK && state.dueDate.isBlank()) {
+        "Due date is required for tasks."
+    } else null
+
+    // 3. Habit logic: Repeat rules are now validated based on ActivityType.HABIT
+    // (Instead of checking state.repeatEnabled, check state.activityType == ActivityType.HABIT)
+    val isHabit = state.activityType == ActivityType.HABIT
+
+    val repeatIntervalError = if (isHabit && (state.repeatInterval ?: 0) <= 0) {
+        "Repeat interval must be greater than 0."
+    } else null
+
+    val repeatStartDateError = if (isHabit && state.repeatStartDate.isBlank()) {
+        "Start date is required."
+    } else null
+
+    val repeatUnitError = if (isHabit && state.repeatUnit == null) {
+        "Repeat unit is required."
+    } else null
+
+    val repeatEndDateError = if (isHabit && state.repeatEndType == RepeatEndType.ON_DATE && state.repeatEndDate.isBlank()) {
+        "End date is required."
+    } else null
+
+    val repeatEndOccurrencesError = if (isHabit && state.repeatEndType == RepeatEndType.AFTER_OCCURRENCES && (state.repeatEndOccurrences ?: 0) <= 0) {
+        "Occurrences must be greater than 0."
+    } else null
+
+    // ---
 
     val targetValueError = if (
         state.trackingType == ActivityTrackingType.MEASURABLE &&
@@ -384,55 +435,9 @@ private fun validateCreateActivityForm(
         null
     }
 
-    val repeatIntervalError = if (
-        state.repeatEnabled &&
-        ((state.repeatInterval ?: 0) <= 0)
-    ) {
-        "Repeat interval must be greater than 0."
-    } else {
-        null
-    }
-
-    val repeatUnitError = if (
-        state.repeatEnabled &&
-        state.repeatUnit == null
-    ) {
-        "Repeat unit is required."
-    } else {
-        null
-    }
-
-    val repeatStartDateError = if (
-        state.repeatEnabled &&
-        state.repeatStartDate.isBlank()
-    ) {
-        "Start date is required."
-    } else {
-        null
-    }
-
-    val repeatEndDateError = if (
-        state.repeatEnabled &&
-        state.repeatEndType == RepeatEndType.ON_DATE &&
-        state.repeatEndDate.isBlank()
-    ) {
-        "End date is required."
-    } else {
-        null
-    }
-
-    val repeatEndOccurrencesError = if (
-        state.repeatEnabled &&
-        state.repeatEndType == RepeatEndType.AFTER_OCCURRENCES &&
-        ((state.repeatEndOccurrences ?: 0) <= 0)
-    ) {
-        "Occurrences must be greater than 0."
-    } else {
-        null
-    }
-
     val isValid = listOf(
         titleError,
+        dueDateError,
         targetValueError,
         unitError,
         subtaskError,
@@ -447,6 +452,7 @@ private fun validateCreateActivityForm(
     return CreateActivityValidationResult(
         isValid = isValid,
         titleError = titleError,
+        dueDateError = dueDateError,
         targetValueError = targetValueError,
         unitError = unitError,
         subtaskError = subtaskError,
@@ -462,6 +468,9 @@ private fun validateCreateActivityForm(
 private fun CreateActivityFormState.toCreateActivityRequest(): CreateActivityRequest {
     val now = System.currentTimeMillis()
     val activityId = UUID.randomUUID().toString()
+
+    val isHabit = activityType == ActivityType.HABIT
+    val isTask = activityType == ActivityType.TASK
 
     val shouldUseNumeric = trackingType == ActivityTrackingType.MEASURABLE &&
             measurableMode == MeasurableMode.NUMERIC
@@ -484,6 +493,9 @@ private fun CreateActivityFormState.toCreateActivityRequest(): CreateActivityReq
             null
         },
 
+        // LOGIC: Only include due date if it's a TASK
+        dueDate = if (isTask) dueDate.ifBlank { null } else null,
+
         targetValue = if (shouldUseNumeric) targetValue else null,
         unit = if (shouldUseNumeric) unit.trim().ifBlank { null } else null,
 
@@ -497,17 +509,17 @@ private fun CreateActivityFormState.toCreateActivityRequest(): CreateActivityReq
             null
         },
 
-        repeatEnabled = repeatEnabled,
-        repeatInterval = if (repeatEnabled) repeatInterval else null,
-        repeatUnit = if (repeatEnabled) repeatUnit else null,
-        repeatStartDate = if (repeatEnabled) repeatStartDate.trim().ifBlank { null } else null,
-        repeatEndType = if (repeatEnabled) repeatEndType else RepeatEndType.NEVER,
-        repeatEndDate = if (repeatEnabled && repeatEndType == RepeatEndType.ON_DATE) {
+        // LOGIC: Only include repeat rules if it's a HABIT
+        repeatInterval = if (isHabit) repeatInterval else null,
+        repeatUnit = if (isHabit) repeatUnit else null,
+        repeatStartDate = if (isHabit) repeatStartDate.ifBlank { null } else null,
+        repeatEndType = if (isHabit) repeatEndType else RepeatEndType.NEVER,
+        repeatEndDate = if (isHabit && repeatEndType == RepeatEndType.ON_DATE) {
             repeatEndDate.trim().ifBlank { null }
         } else {
             null
         },
-        repeatEndOccurrences = if (repeatEnabled && repeatEndType == RepeatEndType.AFTER_OCCURRENCES) {
+        repeatEndOccurrences = if (isHabit && repeatEndType == RepeatEndType.AFTER_OCCURRENCES) {
             repeatEndOccurrences
         } else {
             null
@@ -545,6 +557,7 @@ private fun todayIsoDate(): String {
 private data class CreateActivityTextFieldSnapshot(
     val title: String,
     val description: String,
+    val dueDate: String,
     val targetValueText: String,
     val subtaskInput: String,
     val repeatIntervalText: String,

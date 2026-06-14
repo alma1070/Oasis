@@ -25,6 +25,9 @@ data class CreateActivityFormState(
     val trackingType: ActivityTrackingType = ActivityTrackingType.YES_NO,
     val measurableMode: MeasurableMode? = null,
 
+    // specific to TASK
+    val dueDate: String = "",
+
     val targetValueText: String = "",
     val unit: String = "",
 
@@ -37,7 +40,7 @@ data class CreateActivityFormState(
     val timeOfDay: TimeOfDay = TimeOfDay.ANYTIME,
     val specificTimeMinutes: Int? = null,
 
-    val repeatEnabled: Boolean = false,
+    // Specific to HABIT
     val repeatIntervalText: String = "1",
     val repeatUnit: RepeatUnit? = RepeatUnit.DAY,
     val repeatStartDate: String = "",

@@ -309,4 +309,26 @@ interface ActivityDao {
         completedAt: Long?,
         updatedAt: Long
     )
+
+    // In ActivityDao.kt
+    @Query("SELECT * FROM activities WHERE isArchived = 0")
+    fun observeAllActiveActivities(): Flow<List<ActivityEntity>>
+
+    @Query("SELECT * FROM activity_logs WHERE activityId IN (:activityIds) AND date = :date")
+    fun observeLogsForActivitiesOnDate(activityIds: List<String>, date: String): Flow<List<ActivityLogEntity>>
+
+    @Query("SELECT * FROM activity_subtasks WHERE activityId IN (:activityIds)")
+    fun observeSubtasksForActivities(activityIds: List<String>): Flow<List<ActivitySubtaskEntity>>
+
+    // In ActivityDao.kt
+
+    @Query("""
+    SELECT log.* FROM activity_subtask_logs AS log
+    INNER JOIN activity_subtasks AS sub ON log.subtaskId = sub.id
+    WHERE sub.activityId IN (:activityIds) AND log.date = :date
+""")
+    fun observeSubtaskLogsForActivitiesOnDate(
+        activityIds: List<String>,
+        date: String
+    ): Flow<List<ActivitySubtaskLogEntity>>
 }

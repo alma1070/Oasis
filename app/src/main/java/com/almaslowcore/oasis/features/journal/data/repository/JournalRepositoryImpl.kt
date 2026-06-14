@@ -1,5 +1,7 @@
 package com.almaslowcore.oasis.features.journal.data.repository
 
+import com.almaslowcore.oasis.features.gamification.domain.model.RewardSourceType
+import com.almaslowcore.oasis.features.gamification.domain.repository.GamificationRepository
 import com.almaslowcore.oasis.features.journal.data.local.JournalDao
 import com.almaslowcore.oasis.features.journal.data.local.JournalEntryEntity
 import com.almaslowcore.oasis.features.journal.data.mapper.toDomain
@@ -9,10 +11,14 @@ import com.almaslowcore.oasis.features.journal.domain.model.MoodType
 import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 class JournalRepositoryImpl @Inject constructor(
-    private val journalDao: JournalDao
+    private val journalDao: JournalDao,
+    private val gamificationRepository: GamificationRepository
 ) : JournalRepository {
 
     override fun observeEntriesBetween(
@@ -53,7 +59,9 @@ class JournalRepositoryImpl @Inject constructor(
             updatedAt = null
         )
 
-        return journalDao.insertEntry(entity)
+        val entryId = journalDao.insertEntry(entity)
+
+        return entryId
     }
 
     override suspend fun updateEntry(entry: JournalEntry) {

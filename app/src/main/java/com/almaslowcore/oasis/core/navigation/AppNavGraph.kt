@@ -13,6 +13,7 @@ import androidx.navigation.navArgument
 import com.almaslowcore.oasis.features.activity.presentation.screen.ActivityScreen
 import com.almaslowcore.oasis.features.activity.presentation.screen.CreateActivityRoute
 import com.almaslowcore.oasis.features.gamification.presentation.screen.ProfileScreen
+import com.almaslowcore.oasis.features.home.presentation.screen.HomeRoute
 import com.almaslowcore.oasis.features.home.presentation.screen.HomeScreen
 import com.almaslowcore.oasis.features.journal.presentation.screen.JournalEntryFormScreen
 import com.almaslowcore.oasis.features.journal.presentation.screen.JournalScreen
@@ -66,7 +67,9 @@ fun AppNavGraph(
             ) + fadeOut(animationSpec = tween(300))
         }
     ) {
-        composable(route = OasisDestination.Home.route) { HomeScreen() }
+        composable(route = OasisDestination.Home.route) {
+            HomeRoute()
+        }
 
         composable(route = OasisDestination.Activities.route) {
             ActivityScreen(

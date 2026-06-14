@@ -6,7 +6,11 @@ import com.almaslowcore.oasis.features.activity.domain.model.ActivityDetailModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetailModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityTrackingType
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityType
 import com.almaslowcore.oasis.features.activity.domain.model.CreateActivityRequest
+import com.almaslowcore.oasis.features.activity.domain.model.MeasurableMode
+import com.almaslowcore.oasis.features.activity.domain.model.RepeatEndType
 import com.almaslowcore.oasis.features.activity.domain.repository.ActivityRepository
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityFilterState
 import com.almaslowcore.oasis.features.activity.presentation.model.ActivityGroupBy
@@ -44,11 +48,13 @@ import com.almaslowcore.oasis.features.activity.presentation.util.buildActivityD
 import com.almaslowcore.oasis.features.activity.presentation.util.toIsoDateString
 import com.almaslowcore.oasis.features.journal.domain.model.MoodType
 import com.almaslowcore.oasis.features.journal.domain.repository.JournalRepository
+import com.almaslowcore.oasis.features.gamification.domain.usecase.AwardActivityRewardUseCase
 
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val repository: ActivityRepository,
-    private val journalRepository: JournalRepository
+    private val journalRepository: JournalRepository,
+    private val awardActivityRewardUseCase: AwardActivityRewardUseCase
 ) : ViewModel() {
     private val filterState = MutableStateFlow(
         ActivityFilterState()
@@ -337,6 +343,8 @@ class ActivityViewModel @Inject constructor(
         mood: MoodType? = null
     ) {
         viewModelScope.launch {
+            val activityDetail = uiState.value.activities.find { it.id == activityId }
+            val shouldComplete = true
             runCatching {
                 repository.updateActivityCompletion(
                     activityId = activityId,
@@ -344,6 +352,17 @@ class ActivityViewModel @Inject constructor(
                     isCompleted = true,
                     note = note
                 )
+
+                // reward logic
+                uiState.value.activities.find { it.id == activityId }?.let { uiModel ->
+                    awardActivityRewardUseCase(
+                        activityId = uiModel.id,
+                        activityTitle = uiModel.title,
+                        isHabit = uiModel.isHabit, // This uses the boolean we derived from ActivityType
+                        date = currentSelectedDateString(),
+                        isCompleted = true
+                    )
+                }
 
                 mood?.let {
                     journalRepository.createEntry(
@@ -394,6 +413,16 @@ class ActivityViewModel @Inject constructor(
                     isCompleted = shouldComplete,
                     note = note
                 )
+
+                if (shouldComplete && activity != null) {
+                    awardActivityRewardUseCase(
+                        activityId = activity.id,
+                        activityTitle = activity.title,
+                        isHabit = activity.isHabit,
+                        date = currentSelectedDateString(),
+                        isCompleted = true
+                    )
+                }
 
                 mood?.let {
                     journalRepository.createEntry(
@@ -452,6 +481,16 @@ class ActivityViewModel @Inject constructor(
                     note = note
                 )
 
+                if (shouldComplete && activity != null) {
+                    awardActivityRewardUseCase(
+                        activityId = activity.id,
+                        activityTitle = activity.title,
+                        isHabit = activity.isHabit,
+                        date = currentSelectedDateString(),
+                        isCompleted = true
+                    )
+                }
+
                 mood?.let {
                     journalRepository.createEntry(
                         moodType = it,
@@ -488,25 +527,28 @@ class ActivityViewModel @Inject constructor(
         onDateSelected(newDate)
     }
 
-    fun onActivityCheckedChange(
-        activityId: String,
-        isCompleted: Boolean
-    ) {
+    fun onActivityCheckedChange(activityId: String, isChecked: Boolean) {
         viewModelScope.launch {
-            runCatching {
-                repository.updateActivityCompletion(
+            val date = currentSelectedDateString()
+
+            // Find the activity in the current UI state to check its type
+            val activity = uiState.value.activities.find { it.id == activityId } ?: return@launch
+
+            repository.updateActivityCompletion(
+                activityId = activityId,
+                date = date,
+                isCompleted = isChecked
+            )
+
+            // Award rewards immediately if completed
+            if (isChecked) {
+                awardActivityRewardUseCase(
                     activityId = activityId,
-                    date = currentSelectedDateString(),
-                    isCompleted = isCompleted
+                    activityTitle = activity.title,
+                    isHabit = activity.isHabit,
+                    date = date,
+                    isCompleted = true
                 )
-            }.onFailure { throwable ->
-                // Giai đoạn MVP: lưu lỗi nhẹ.
-                // Sau này có thể dùng Snackbar/Event channel.
-                createActivityUiState.update {
-                    it.copy(
-                        errorMessage = throwable.message
-                    )
-                }
             }
         }
     }
@@ -522,6 +564,19 @@ class ActivityViewModel @Inject constructor(
                     date = currentSelectedDateString(),
                     value = value
                 )
+
+                uiState.value.activities.find { it.id == activityId }?.let { activity ->
+                    val target = activity.targetValue ?: 0.0
+                    if (target > 0.0 && value >= target) {
+                        awardActivityRewardUseCase(
+                            activityId = activity.id,
+                            activityTitle = activity.title,
+                            isHabit = activity.isHabit,
+                            date = currentSelectedDateString(),
+                            isCompleted = true
+                        )
+                    }
+                }
             }.onFailure { throwable ->
                 createActivityUiState.update {
                     it.copy(
@@ -543,6 +598,26 @@ class ActivityViewModel @Inject constructor(
                     date = currentSelectedDateString(),
                     isCompleted = isCompleted
                 )
+
+                if (isCompleted) {
+                    uiState.value.activities.find { act ->
+                        act.subtasks.any { it.id == subtaskId }
+                    }?.let { activity ->
+                        val allOthersCompleted = activity.subtasks
+                            .filter { it.id != subtaskId }
+                            .all { it.isCompleted }
+
+                        if (allOthersCompleted) {
+                            awardActivityRewardUseCase(
+                                activityId = activity.id,
+                                activityTitle = activity.title,
+                                isHabit = activity.isHabit,
+                                date = currentSelectedDateString(),
+                                isCompleted = true
+                            )
+                        }
+                    }
+                }
             }.onFailure { throwable ->
                 createActivityUiState.update {
                     it.copy(
@@ -576,6 +651,9 @@ class ActivityViewModel @Inject constructor(
                     iconName = formState.iconName,
                     colorHex = formState.colorHex,
                     activityType = formState.activityType,
+                    dueDate = if (formState.activityType == ActivityType.TASK) {
+                        formState.dueDate.ifBlank { null }
+                    } else null,
                     trackingType = formState.trackingType,
                     measurableMode = formState.measurableMode,
                     targetValue = formState.targetValue,
@@ -584,13 +662,14 @@ class ActivityViewModel @Inject constructor(
                     lifeAreaId = formState.lifeAreaId?.name,
                     timeOfDay = formState.timeOfDay,
                     specificTimeMinutes = formState.specificTimeMinutes,
-                    repeatEnabled = formState.repeatEnabled,
-                    repeatInterval = formState.repeatInterval,
-                    repeatUnit = formState.repeatUnit,
-                    repeatStartDate = formState.repeatStartDate,
-                    repeatEndType = formState.repeatEndType,
-                    repeatEndDate = formState.repeatEndDate,
-                    repeatEndOccurrences = formState.repeatEndOccurrences,
+
+                    repeatInterval = if (formState.activityType == ActivityType.HABIT) formState.repeatInterval else null,
+                    repeatUnit = if (formState.activityType == ActivityType.HABIT) formState.repeatUnit else null,
+                    repeatStartDate = if (formState.activityType == ActivityType.HABIT) formState.repeatStartDate else null,
+                    repeatEndType = if (formState.activityType == ActivityType.HABIT) formState.repeatEndType else RepeatEndType.NEVER,
+                    repeatEndDate = if (formState.activityType == ActivityType.HABIT) formState.repeatEndDate else null,
+                    repeatEndOccurrences = if (formState.activityType == ActivityType.HABIT) formState.repeatEndOccurrences else null,
+
                     createdAt = now,
                     updatedAt = now,
                     isArchived = false
@@ -664,115 +743,18 @@ class ActivityViewModel @Inject constructor(
     }
 }
 
-private fun ActivityDetailModel.toUiModel(): ActivityUiModel {
-    val isHabit = activity.activityType.name == "HABIT"
-
-    val completedSubtaskCount = subtasks.count {
-        it.isCompleted
-    }
-
-    val totalSubtaskCount = subtasks.size
-
-    val checklistProgress = if (totalSubtaskCount > 0) {
-        completedSubtaskCount.toFloat() / totalSubtaskCount.toFloat()
-    } else {
-        null
-    }
-
-    val numericProgress = if (
-        activity.targetValue != null &&
-        activity.targetValue > 0.0
-    ) {
-        ((log?.value ?: 0.0) / activity.targetValue)
-            .toFloat()
-            .coerceIn(0f, 1f)
-    } else {
-        null
-    }
-
-    val uiTrackingType = when (activity.trackingType.name) {
-        "MEASURABLE" -> ActivityUiTrackingType.MEASURABLE
-        else -> ActivityUiTrackingType.YES_NO
-    }
-
-    val uiMeasurableMode = when (activity.measurableMode?.name) {
-        "NUMERIC" -> ActivityUiMeasurableMode.NUMERIC
-        "CHECKLIST" -> ActivityUiMeasurableMode.CHECKLIST
-        else -> null
-    }
-
-    val progress = when (uiMeasurableMode) {
-        ActivityUiMeasurableMode.NUMERIC -> numericProgress
-        ActivityUiMeasurableMode.CHECKLIST -> checklistProgress
-        null -> null
-    }
-
-    val isChecklistCompleted = totalSubtaskCount > 0 &&
-            completedSubtaskCount == totalSubtaskCount
-
-    val isCompleted = when (uiMeasurableMode) {
-        ActivityUiMeasurableMode.CHECKLIST -> {
-            log?.isCompleted ?: isChecklistCompleted
-        }
-
-        else -> {
-            log?.isCompleted ?: false
-        }
-    }
-
-    return ActivityUiModel(
-        id = activity.id,
-        title = activity.title,
-        description = activity.description,
-        iconName = activity.iconName,
-        colorHex = activity.colorHex,
-        isHabit = isHabit,
-        trackingType = uiTrackingType,
-        measurableMode = uiMeasurableMode,
-        isCompleted = isCompleted,
-
-        category = activity.categoryId,
-        lifeArea = activity.lifeAreaId,
-
-        categoryId = activity.categoryId,
-        categoryName = activity.categoryId,
-        lifeAreaId = activity.lifeAreaId,
-        lifeAreaName = activity.lifeAreaId,
-
-        timeOfDay = activity.timeOfDay,
-        specificTimeMinutes = activity.specificTimeMinutes,
-
-        currentValue = log?.value,
-        targetValue = activity.targetValue,
-        unit = activity.unit,
-        streakCount = null,
-        dueText = activity.timeOfDay.name,
-        repeatText = buildRepeatText(activity),
-        progress = progress,
-        completedSubtaskCount = completedSubtaskCount,
-        totalSubtaskCount = totalSubtaskCount,
-        subtasks = subtasks.map {
-            ActivitySubtaskUiModel(
-                id = it.id,
-                title = it.title,
-                isCompleted = it.isCompleted,
-                orderIndex = it.orderIndex
-            )
-        }
-    )
-}
 //mapper
 private fun ActivityPeriodDetailModel.toPeriodUiModel(): ActivityUiModel {
-    val isHabit = activity.activityType.name == "HABIT"
+    val isHabit = activity.activityType == ActivityType.HABIT
 
-    val uiTrackingType = when (activity.trackingType.name) {
-        "MEASURABLE" -> ActivityUiTrackingType.MEASURABLE
-        else -> ActivityUiTrackingType.YES_NO
+    val uiTrackingType = when (activity.trackingType) {
+        ActivityTrackingType.MEASURABLE -> ActivityUiTrackingType.MEASURABLE
+        ActivityTrackingType.YES_NO -> ActivityUiTrackingType.YES_NO
     }
 
-    val uiMeasurableMode = when (activity.measurableMode?.name) {
-        "NUMERIC" -> ActivityUiMeasurableMode.NUMERIC
-        "CHECKLIST" -> ActivityUiMeasurableMode.CHECKLIST
+    val uiMeasurableMode = when (activity.measurableMode) {
+        MeasurableMode.NUMERIC -> ActivityUiMeasurableMode.NUMERIC
+        MeasurableMode.CHECKLIST -> ActivityUiMeasurableMode.CHECKLIST
         else -> null
     }
 
@@ -807,7 +789,11 @@ private fun ActivityPeriodDetailModel.toPeriodUiModel(): ActivityUiModel {
 
         streakCount = null,
 
-        dueText = activity.timeOfDay.name,
+        dueText = if (activity.activityType == ActivityType.TASK && !activity.dueDate.isNullOrBlank()) {
+            "${activity.dueDate} • ${activity.timeOfDay.name}"
+        } else {
+            activity.timeOfDay.name
+        },
         repeatText = buildRepeatText(activity),
 
         progress = summary.progress,
@@ -829,7 +815,7 @@ private fun ActivityPeriodDetailModel.toPeriodUiModel(): ActivityUiModel {
 private fun buildRepeatText(
     activity: ActivityModel
 ): String? {
-    if (!activity.repeatEnabled) return null
+    if (activity.activityType != ActivityType.HABIT) return null
 
     val interval = activity.repeatInterval ?: 1
     val unit = activity.repeatUnit?.name ?: return null

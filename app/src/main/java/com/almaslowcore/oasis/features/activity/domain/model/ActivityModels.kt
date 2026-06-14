@@ -45,6 +45,7 @@ data class ActivityModel(
     val colorHex: String? = null,
 
     val activityType: ActivityType,
+    val dueDate: String? = null,
     val trackingType: ActivityTrackingType,
     val measurableMode: MeasurableMode? = null,
 
@@ -57,7 +58,6 @@ data class ActivityModel(
     val timeOfDay: TimeOfDay = TimeOfDay.ANYTIME,
     val specificTimeMinutes: Int? = null,
 
-    val repeatEnabled: Boolean = false,
     val repeatInterval: Int? = null,
     val repeatUnit: RepeatUnit? = null,
     val repeatStartDate: String? = null,

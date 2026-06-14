@@ -25,6 +25,9 @@ data class ActivityEntity(
     val trackingType: ActivityTrackingType,
     val measurableMode: MeasurableMode? = null,
 
+    // Specific for TASK
+    val dueDate: String? = null,
+
     // Numeric measurable fields
     val targetValue: Double? = null,
     val unit: String? = null,
@@ -37,8 +40,7 @@ data class ActivityEntity(
     val timeOfDay: TimeOfDay = TimeOfDay.ANYTIME,
     val specificTimeMinutes: Int? = null,
 
-    // Repeat rule
-    val repeatEnabled: Boolean = false,
+    // Specific to HABIT (Repeat Rules)
     val repeatInterval: Int? = null,
     val repeatUnit: RepeatUnit? = null,
     val repeatStartDate: String? = null,

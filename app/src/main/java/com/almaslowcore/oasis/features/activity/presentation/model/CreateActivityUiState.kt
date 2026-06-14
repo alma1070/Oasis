@@ -11,6 +11,7 @@ data class CreateActivityUiState(
 data class CreateActivityValidationResult(
     val isValid: Boolean = false,
     val titleError: String? = null,
+    val dueDateError: String? = null,
     val targetValueError: String? = null,
     val unitError: String? = null,
     val subtaskError: String? = null,

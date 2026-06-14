@@ -27,6 +27,7 @@ import javax.inject.Inject
 @HiltViewModel
 class JournalEntryFormViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
+    private val awardJournalRewardUseCase: com.almaslowcore.oasis.features.gamification.domain.usecase.AwardJournalRewardUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -174,12 +175,22 @@ class JournalEntryFormViewModel @Inject constructor(
     private suspend fun createEntry(
         state: JournalFormState
     ) {
-        journalRepository.createEntry(
+        val entryId = journalRepository.createEntry(
             moodType = state.selectedMood,
             note = state.note.trim(),
             dateTime = state.toDateTimeMillis(),
             relatedActivityId = null
         )
+
+        if (entryId != -1L) {
+            val dateStr = state.selectedDate.toString()
+            awardJournalRewardUseCase(
+                journalEntryId = entryId,
+                moodScore = state.selectedMood.score,
+                note = state.note,
+                date = dateStr
+            )
+        }
     }
 
     private suspend fun updateEntry(

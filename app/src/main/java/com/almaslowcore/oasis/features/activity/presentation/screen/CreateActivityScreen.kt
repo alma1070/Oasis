@@ -1,8 +1,10 @@
 package com.almaslowcore.oasis.features.activity.presentation.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -99,6 +101,7 @@ fun CreateActivityRoute(
         uiState = uiState,
         titleTextState = viewModel.titleTextState,
         descriptionTextState = viewModel.descriptionTextState,
+        dueDateTextState = viewModel.dueDateTextState,
         targetValueTextState = viewModel.targetValueTextState,
         subtaskInputTextState = viewModel.subtaskInputTextState,
         repeatIntervalTextState = viewModel.repeatIntervalTextState,
@@ -107,6 +110,7 @@ fun CreateActivityRoute(
         repeatEndOccurrencesTextState = viewModel.repeatEndOccurrencesTextState,
 
         onActivityTypeChange = viewModel::onActivityTypeChange,
+        onDueDateChange = viewModel::onDueDateChange,
         onTrackingTypeChange = viewModel::onTrackingTypeChange,
         onMeasurableModeChange = viewModel::onMeasurableModeChange,
         onUnitChange = viewModel::onUnitChange,
@@ -120,7 +124,6 @@ fun CreateActivityRoute(
         onTimeOfDayChange = viewModel::onTimeOfDayChange,
         onSpecificTimeSelected = viewModel::onSpecificTimeSelected,
 
-        onRepeatEnabledChange = viewModel::onRepeatEnabledChange,
         onRepeatUnitChange = viewModel::onRepeatUnitChange,
         onRepeatEndTypeChange = viewModel::onRepeatEndTypeChange
     )
@@ -133,6 +136,7 @@ fun CreateActivityScreen(
 
     titleTextState: TextFieldState,
     descriptionTextState: TextFieldState,
+    dueDateTextState: TextFieldState,
     targetValueTextState: TextFieldState,
     subtaskInputTextState: TextFieldState,
     repeatIntervalTextState: TextFieldState,
@@ -141,6 +145,7 @@ fun CreateActivityScreen(
     repeatEndOccurrencesTextState: TextFieldState,
 
     onActivityTypeChange: (ActivityType) -> Unit,
+    onDueDateChange: (String) -> Unit,
     onTrackingTypeChange: (ActivityTrackingType) -> Unit,
     onMeasurableModeChange: (MeasurableMode) -> Unit,
 
@@ -155,16 +160,18 @@ fun CreateActivityScreen(
     onTimeOfDayChange: (TimeOfDay) -> Unit,
     onSpecificTimeSelected: (Int) -> Unit,
 
-    onRepeatEnabledChange: (Boolean) -> Unit,
     onRepeatUnitChange: (RepeatUnit?) -> Unit,
     onRepeatEndTypeChange: (RepeatEndType) -> Unit
 ) {
     val formState = uiState.formState
     val validation = uiState.validationResult
+
+
     // State for Dialog Visibility
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var showDueDatePicker by remember { mutableStateOf(false) }
 
     OasisScreen(
         scrollable = true
@@ -175,9 +182,42 @@ fun CreateActivityScreen(
             descriptionTextState = descriptionTextState
         )
 
-        TypeSection(
+        // 1. Activity Type Selection
+        ActivityTypeSection(
             activityType = formState.activityType,
-            onActivityTypeChange = onActivityTypeChange,
+            onActivityTypeChange = onActivityTypeChange
+        )
+
+        if (formState.activityType == ActivityType.TASK) {
+            DueDateSection(
+                dueDateTextState = dueDateTextState,
+                dueDateError = validation.dueDateError,
+                onDateClick = { showDueDatePicker = true }
+            )
+        }
+
+        if (formState.activityType == ActivityType.HABIT) {
+            RepeatSection(
+                repeatIntervalTextState = repeatIntervalTextState,
+                repeatIntervalError = validation.repeatIntervalError,
+                repeatUnit = formState.repeatUnit,
+                onRepeatUnitChange = onRepeatUnitChange,
+                repeatUnitError = validation.repeatUnitError,
+                repeatStartDateTextState = repeatStartDateTextState,
+                repeatStartDateError = validation.repeatStartDateError,
+                repeatEndType = formState.repeatEndType,
+                onRepeatEndTypeChange = onRepeatEndTypeChange,
+                repeatEndDateTextState = repeatEndDateTextState,
+                repeatEndDateError = validation.repeatEndDateError,
+                repeatEndOccurrencesTextState = repeatEndOccurrencesTextState,
+                repeatEndOccurrencesError = validation.repeatEndOccurrencesError,
+                onStartDateClick = { showStartDatePicker = true },
+                onEndDateClick = { showEndDatePicker = true }
+            )
+        }
+
+        // 3. Tracking Type Selection
+        TrackingTypeSection(
             trackingType = formState.trackingType,
             onTrackingTypeChange = onTrackingTypeChange
         )
@@ -214,25 +254,8 @@ fun CreateActivityScreen(
             onTimeClick = { showStartTimePicker = true }
         )
 
-        RepeatSection(
-            repeatEnabled = formState.repeatEnabled,
-            onRepeatEnabledChange = onRepeatEnabledChange,
-            repeatIntervalTextState = repeatIntervalTextState,
-            repeatIntervalError = validation.repeatIntervalError,
-            repeatUnit = formState.repeatUnit,
-            onRepeatUnitChange = onRepeatUnitChange,
-            repeatUnitError = validation.repeatUnitError,
-            repeatStartDateTextState = repeatStartDateTextState,
-            repeatStartDateError = validation.repeatStartDateError,
-            repeatEndType = formState.repeatEndType,
-            onRepeatEndTypeChange = onRepeatEndTypeChange,
-            repeatEndDateTextState = repeatEndDateTextState,
-            repeatEndDateError = validation.repeatEndDateError,
-            repeatEndOccurrencesTextState = repeatEndOccurrencesTextState,
-            repeatEndOccurrencesError = validation.repeatEndOccurrencesError,
-            onStartDateClick = { showStartDatePicker = true },
-            onEndDateClick = { showEndDatePicker = true }
-        )
+
+
 
         // Dialogs
         if (showStartTimePicker) {
@@ -267,6 +290,31 @@ fun CreateActivityScreen(
                     }
                 },
                 onDismiss = { showEndDatePicker = false }
+            )
+        }
+
+        if (showDueDatePicker) {
+            DatePickerModal(
+                onDateSelected = { millis ->
+                    millis?.let {
+                        // Consistency: Use the same conversion logic as your other date fields
+                        val date = Instant.ofEpochMilli(it)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+
+                        val dateString = date.toString() // yyyy-MM-dd
+
+                        // 1. Update the FormState in ViewModel
+                        onDueDateChange(dateString)
+
+                        // 2. Update the UI Text field
+                        dueDateTextState.edit {
+                            replace(0, length, dateString)
+                        }
+                    }
+                    showDueDatePicker = false
+                },
+                onDismiss = { showDueDatePicker = false }
             )
         }
 
@@ -306,36 +354,66 @@ private fun BasicInfoSection(
 }
 
 @Composable
-private fun TypeSection(
+private fun ActivityTypeSection(
     activityType: ActivityType,
-    onActivityTypeChange: (ActivityType) -> Unit,
+    onActivityTypeChange: (ActivityType) -> Unit
+) {
+    OasisRadioButtonGroup(
+        label = "Activity type",
+        options = ActivityType.entries,
+        selectedOption = activityType,
+        onOptionSelected = onActivityTypeChange,
+        optionToString = { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
+    )
+}
+
+@Composable
+private fun TrackingTypeSection(
     trackingType: ActivityTrackingType,
     onTrackingTypeChange: (ActivityTrackingType) -> Unit
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        OasisRadioButtonGroup(
-            label = "Activity type",
-            options = ActivityType.entries,
-            selectedOption = activityType,
-            onOptionSelected = onActivityTypeChange,
-            optionToString = { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
-        )
-
-        OasisRadioButtonGroup(
-            label = "Tracking type",
-            options = ActivityTrackingType.entries,
-            selectedOption = trackingType,
-            onOptionSelected = onTrackingTypeChange,
-            optionToString = {
-                when(it) {
-                    ActivityTrackingType.YES_NO -> "${stringResource(R.string.yes)} / ${stringResource(R.string.no)}"
-                    ActivityTrackingType.MEASURABLE -> stringResource(R.string.measurable)
-                }
+    OasisRadioButtonGroup(
+        label = "Tracking type",
+        options = ActivityTrackingType.entries,
+        selectedOption = trackingType,
+        onOptionSelected = onTrackingTypeChange,
+        optionToString = {
+            when (it) {
+                ActivityTrackingType.YES_NO -> "${stringResource(R.string.yes)} / ${stringResource(R.string.no)}"
+                ActivityTrackingType.MEASURABLE -> stringResource(R.string.measurable)
             }
-        )
+        }
+    )
+}
+
+
+@Composable
+private fun DueDateSection(dueDateTextState: TextFieldState,
+                           dueDateError: String?,
+                           onDateClick: () -> Unit
+) {
+    // Create an interaction source to detect clicks
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Trigger the action when the field is pressed
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            onDateClick()
+        }
     }
+
+    OasisTextField(
+        modifier = Modifier.fillMaxWidth(),
+        state = dueDateTextState,
+        label = "Due Date",
+        placeholder = "Select due date",
+        errorText = dueDateError,
+        readOnly = true,
+        // Ensure consistency by using the same click handler pattern
+        // as StartDate/EndDate
+        interactionSource = interactionSource
+    )
 }
 
 @Composable
@@ -542,8 +620,6 @@ private fun TimeSection(
 
 @Composable
 private fun RepeatSection(
-    repeatEnabled: Boolean,
-    onRepeatEnabledChange: (Boolean) -> Unit,
     repeatIntervalTextState: TextFieldState,
     repeatIntervalError: String?,
     repeatUnit: RepeatUnit?,
@@ -563,93 +639,85 @@ private fun RepeatSection(
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OasisToggle(
-            label = "Repeat activity",
-            description = "Set a schedule for this activity",
-            checked = repeatEnabled,
-            onCheckedChange = onRepeatEnabledChange
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OasisTextField(
+                modifier = Modifier.weight(1f),
+                state = repeatIntervalTextState,
+                label = "Every",
+                errorText = repeatIntervalError,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+
+            OasisDropdown(
+                modifier = Modifier.weight(1f),
+                label = "Repeat unit",
+                options = RepeatUnit.entries,
+                selectedOption = repeatUnit ?: RepeatUnit.DAY,
+                onOptionSelected = { onRepeatUnitChange(it) },
+                optionToString = { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } },
+                errorText = repeatUnitError
+            )
+        }
+
+        // Use InteractionSource to detect clicks on read-only fields
+        val startInteractionSource = remember { MutableInteractionSource() }
+        if (startInteractionSource.collectIsPressedAsState().value) {
+            LaunchedEffect(Unit) { onStartDateClick() }
+        }
+
+        val endInteractionSource = remember { MutableInteractionSource() }
+        if (endInteractionSource.collectIsPressedAsState().value) {
+            LaunchedEffect(Unit) { onEndDateClick() }
+        }
+
+        OasisTextField(
+            state = repeatStartDateTextState,
+            label = "Start Date",
+            readOnly = true,
+            errorText = repeatStartDateError,
+            interactionSource = startInteractionSource
         )
 
-        if (repeatEnabled) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+        // NEW: Using OasisRadioButtonGroup for End Type
+        OasisRadioButtonGroup(
+            label = "Ends",
+            options = RepeatEndType.entries,
+            selectedOption = repeatEndType,
+            onOptionSelected = onRepeatEndTypeChange,
+            optionToString = {
+                when (it) {
+                    RepeatEndType.NEVER -> "Never"
+                    RepeatEndType.ON_DATE -> "On date"
+                    RepeatEndType.AFTER_OCCURRENCES -> "After number of times"
+                }
+            }
+        )
+
+        // Conditional fields based on End Type selection
+        when (repeatEndType) {
+            RepeatEndType.ON_DATE -> {
                 OasisTextField(
-                    modifier = Modifier.weight(1f),
-                    state = repeatIntervalTextState,
-                    label = "Every",
-                    errorText = repeatIntervalError,
+                    state = repeatEndDateTextState,
+                    label = "End Date",
+                    readOnly = true,
+                    errorText = repeatEndDateError,
+                    interactionSource = endInteractionSource
+                )
+            }
+            RepeatEndType.AFTER_OCCURRENCES -> {
+                OasisTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = repeatEndOccurrencesTextState,
+                    label = "Number of occurrences",
+                    errorText = repeatEndOccurrencesError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
-
-                OasisDropdown(
-                    modifier = Modifier.weight(1f),
-                    label = "Repeat unit",
-                    options = RepeatUnit.entries,
-                    selectedOption = repeatUnit ?: RepeatUnit.DAY,
-                    onOptionSelected = { onRepeatUnitChange(it) },
-                    optionToString = { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } },
-                    errorText = repeatUnitError
-                )
             }
-
-            // Use InteractionSource to detect clicks on read-only fields
-            val startInteractionSource = remember { MutableInteractionSource() }
-            if (startInteractionSource.collectIsPressedAsState().value) {
-                LaunchedEffect(Unit) { onStartDateClick() }
-            }
-
-            val endInteractionSource = remember { MutableInteractionSource() }
-            if (endInteractionSource.collectIsPressedAsState().value) {
-                LaunchedEffect(Unit) { onEndDateClick() }
-            }
-
-            OasisTextField(
-                state = repeatStartDateTextState,
-                label = "Start Date",
-                readOnly = true,
-                errorText = repeatStartDateError,
-                interactionSource = startInteractionSource
-            )
-
-            // NEW: Using OasisRadioButtonGroup for End Type
-            OasisRadioButtonGroup(
-                label = "Ends",
-                options = RepeatEndType.entries,
-                selectedOption = repeatEndType,
-                onOptionSelected = onRepeatEndTypeChange,
-                optionToString = {
-                    when (it) {
-                        RepeatEndType.NEVER -> "Never"
-                        RepeatEndType.ON_DATE -> "On date"
-                        RepeatEndType.AFTER_OCCURRENCES -> "After number of times"
-                    }
-                }
-            )
-
-            // Conditional fields based on End Type selection
-            when (repeatEndType) {
-                RepeatEndType.ON_DATE -> {
-                    OasisTextField(
-                        state = repeatEndDateTextState,
-                        label = "End Date",
-                        readOnly = true,
-                        errorText = repeatEndDateError,
-                        interactionSource = endInteractionSource
-                    )
-                }
-                RepeatEndType.AFTER_OCCURRENCES -> {
-                    OasisTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        state = repeatEndOccurrencesTextState,
-                        label = "Number of occurrences",
-                        errorText = repeatEndOccurrencesError,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                }
-                RepeatEndType.NEVER -> {}
-            }
+            RepeatEndType.NEVER -> {}
         }
     }
 }

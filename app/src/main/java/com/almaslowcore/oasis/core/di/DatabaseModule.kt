@@ -9,6 +9,7 @@ import android.content.Context
 import androidx.room.Room
 import com.almaslowcore.oasis.core.database.OasisDatabase
 import com.almaslowcore.oasis.features.activity.data.local.dao.ActivityDao
+import com.almaslowcore.oasis.features.gamification.data.local.dao.GamificationDao
 import com.almaslowcore.oasis.features.journal.data.local.JournalDao
 import dagger.Module
 import dagger.Provides
@@ -47,5 +48,12 @@ object DatabaseModule {
         database: OasisDatabase
     ): JournalDao {
         return database.journalDao()
+    }
+
+    @Provides
+    fun provideGamificationDao(
+        database: OasisDatabase
+    ): GamificationDao {
+        return database.gamificationDao()
     }
 }

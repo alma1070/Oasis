@@ -9,7 +9,7 @@ interface ActivityRepository {
 
     fun observeActivitiesForDate(
         date: String
-    ): Flow<List<ActivityDetailModel>>
+    ): Flow<List<ActivityPeriodDetailModel>>
     fun observeActivitiesForPeriod(
         startDate: String,
         endDate: String

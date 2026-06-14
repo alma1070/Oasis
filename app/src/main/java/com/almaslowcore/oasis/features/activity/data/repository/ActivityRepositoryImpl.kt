@@ -18,45 +18,114 @@ import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodDetai
 import com.almaslowcore.oasis.features.activity.domain.model.ActivityPeriodSummaryModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskLogModel
 import com.almaslowcore.oasis.features.activity.domain.model.ActivitySubtaskModel
+import com.almaslowcore.oasis.features.gamification.domain.model.RewardSourceType
+import com.almaslowcore.oasis.features.gamification.domain.repository.GamificationRepository
+import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import com.almaslowcore.oasis.features.activity.data.local.entity.ActivityEntity
+import com.almaslowcore.oasis.features.activity.data.local.entity.ActivitySubtaskEntity
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityTrackingType
+import com.almaslowcore.oasis.features.activity.domain.model.ActivityType
+import com.almaslowcore.oasis.features.activity.domain.model.MeasurableMode
+import com.almaslowcore.oasis.features.activity.domain.model.RepeatUnit
+import kotlinx.coroutines.flow.flatMapLatest
+
 class ActivityRepositoryImpl @Inject constructor(
-    private val activityDao: ActivityDao
+    private val activityDao: ActivityDao,
+    private val gamificationRepository: GamificationRepository
 ) : ActivityRepository {
 
-    override fun observeActivitiesForDate(
-        date: String
-    ): Flow<List<ActivityDetailModel>> {
-        return combine(
-            activityDao.observeActiveActivities(),
-            activityDao.observeLogsByDate(date),
-            activityDao.observeActiveSubtasks(),
-            activityDao.observeSubtaskLogsByDate(date)
-        ) { activities, logs, subtasks, subtaskLogs ->
+    override fun observeActivitiesForDate(date: String): Flow<List<ActivityPeriodDetailModel>> {
+        val localDate = LocalDate.parse(date)
 
-            activities.map { activity ->
-                val log = logs.firstOrNull {
-                    it.activityId == activity.id
+        return activityDao.observeAllActiveActivities().flatMapLatest { entities ->
+            val filteredEntities = entities.filter { entity ->
+                if (entity.activityType == ActivityType.TASK) {
+                    entity.dueDate == date
+                } else {
+                    shouldActivityOccurOnDate(entity, localDate)
                 }
+            }
 
-                val activitySubtasks = subtasks
-                    .filter { it.activityId == activity.id }
-                    .map { subtask ->
-                        val subtaskLog = subtaskLogs.firstOrNull {
-                            it.subtaskId == subtask.id
-                        }
+            if (filteredEntities.isEmpty()) return@flatMapLatest flowOf(emptyList())
 
-                        subtask.toDomainModel(
-                            isCompleted = subtaskLog?.isCompleted ?: false
-                        )
+            val activityIds = filteredEntities.map { it.id }
+            combine(
+                flowOf(filteredEntities),
+                activityDao.observeLogsForActivitiesOnDate(activityIds, date),
+                activityDao.observeSubtasksForActivities(activityIds),
+                activityDao.observeSubtaskLogsForActivitiesOnDate(activityIds, date)
+            ) { currentEntities, logs, subtasks, subtaskLogs ->
+                currentEntities.map { entity ->
+                    // FIX: Map to Domain models first to avoid type mismatch
+                    val domainActivity = entity.toDomainModel()
+                    val domainLogs = logs.filter { it.activityId == entity.id }.map { it.toDomainModel() }
+                    
+                    val activitySubtasks = subtasks.filter { it.activityId == entity.id }
+                    val domainSubtasks = activitySubtasks.map { subtask ->
+                        val isCompleted = subtaskLogs.any { it.subtaskId == subtask.id && it.isCompleted }
+                        subtask.toDomainModel(isCompleted)
                     }
 
-                ActivityDetailModel(
-                    activity = activity.toDomainModel(),
-                    log = log?.toDomainModel(),
-                    subtasks = activitySubtasks
-                )
+                    val domainSubtaskLogs = subtaskLogs.filter { log ->
+                        activitySubtasks.any { it.id == log.subtaskId }
+                    }.map { it.toDomainModel() }
+
+                    ActivityPeriodDetailModel(
+                        activity = domainActivity,
+                        logs = domainLogs,
+                        subtasks = domainSubtasks,
+                        subtaskLogs = domainSubtaskLogs,
+                        summary = buildPeriodSummary(
+                            activity = domainActivity,
+                            logs = domainLogs,
+                            subtasks = domainSubtasks,
+                            subtaskLogs = domainSubtaskLogs,
+                            startDate = date, // For single date, start = end
+                            endDate = date
+                        )
+                    )
+                }
             }
+        }
+    }
+
+    /**
+     * Logic to determine if a Habit should show up on a specific date.
+     */
+    private fun shouldActivityOccurOnDate(activity: ActivityEntity, date: LocalDate): Boolean {
+        val startDateStr = activity.repeatStartDate ?: return true
+        val startDate = LocalDate.parse(startDateStr)
+
+        // Habit hasn't started yet
+        if (date.isBefore(startDate)) return false
+
+        // Habit has ended
+        activity.repeatEndDate?.let {
+            if (date.isAfter(LocalDate.parse(it))) return false
+        }
+
+        val interval = activity.repeatInterval ?: 1
+        return when (activity.repeatUnit) {
+            RepeatUnit.DAY -> {
+                ChronoUnit.DAYS.between(startDate, date) % interval == 0L
+            }
+            RepeatUnit.WEEK -> {
+                val weeksBetween = ChronoUnit.WEEKS.between(startDate, date)
+                weeksBetween % interval == 0L && date.dayOfWeek == startDate.dayOfWeek
+            }
+            RepeatUnit.MONTH -> {
+                val monthsBetween = ChronoUnit.MONTHS.between(startDate, date)
+                monthsBetween % interval == 0L && date.dayOfMonth == startDate.dayOfMonth
+            }
+            RepeatUnit.YEAR -> {
+                val yearsBetween = ChronoUnit.YEARS.between(startDate, date)
+                yearsBetween % interval == 0L &&
+                        date.month == startDate.month &&
+                        date.dayOfMonth == startDate.dayOfMonth
+            }
+            else -> true
         }
     }
 
@@ -64,6 +133,9 @@ class ActivityRepositoryImpl @Inject constructor(
         startDate: String,
         endDate: String
     ): Flow<List<ActivityPeriodDetailModel>> {
+        val startLocalDate = LocalDate.parse(startDate)
+        val endLocalDate = LocalDate.parse(endDate)
+
         return combine(
             activityDao.observeActiveActivities(),
             activityDao.observeLogsBetweenDates(
@@ -75,17 +147,31 @@ class ActivityRepositoryImpl @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             )
-        ) { activities, logs, subtasks, subtaskLogs ->
+        ) { allActivities, logs, subtasks, subtaskLogs ->
 
-            val logsByActivityId = logs.groupBy { log ->
-                log.activityId
+            // FILTER: Only include activities that actually occur in this period
+            val relevantActivities = allActivities.filter { entity ->
+                if (entity.activityType == ActivityType.TASK) {
+                    // Task must fall within the range
+                    val due = entity.dueDate?.let { LocalDate.parse(it) }
+                    due != null && !due.isBefore(startLocalDate) && !due.isAfter(endLocalDate)
+                } else {
+                    // Habit: Check if the habit's overall duration overlaps with the period
+                    val habitStart = entity.repeatStartDate?.let { LocalDate.parse(it) } ?: startLocalDate
+                    val habitEnd = entity.repeatEndDate?.let { LocalDate.parse(it) }
+
+                    val startOverlap = !habitStart.isAfter(endLocalDate)
+                    val endOverlap = habitEnd == null || !habitEnd.isBefore(startLocalDate)
+
+                    startOverlap && endOverlap
+                }
             }
 
-            val subtasksByActivityId = subtasks.groupBy { subtask ->
-                subtask.activityId
-            }
+            val logsByActivityId = logs.groupBy { it.activityId }
+            val subtasksByActivityId = subtasks.groupBy { it.activityId }
 
-            activities.map { activity ->
+            relevantActivities.map { activity ->
+                // mapping logic
                 val activityLogs = logsByActivityId[activity.id]
                     .orEmpty()
                     .map { log ->
@@ -262,12 +348,7 @@ class ActivityRepositoryImpl @Inject constructor(
         note: String?
     ) {
         val now = System.currentTimeMillis()
-
-        val existingLog = activityDao.getLogByActivityIdAndDate(
-            activityId = activityId,
-            date = date
-        )
-
+        val existingLog = activityDao.getLogByActivityIdAndDate(activityId, date)
         val normalizedNote = note?.trim()?.takeIf { it.isNotBlank() }
 
         if (existingLog == null) {
@@ -300,12 +381,7 @@ class ActivityRepositoryImpl @Inject constructor(
         isCompleted: Boolean
     ) {
         val now = System.currentTimeMillis()
-
-        val existingLog = activityDao.getSubtaskLogBySubtaskIdAndDate(
-            subtaskId = subtaskId,
-            date = date
-        )
-
+        val existingLog = activityDao.getSubtaskLogBySubtaskIdAndDate(subtaskId, date)
         val completedAt = if (isCompleted) now else null
 
         if (existingLog == null) {
@@ -316,17 +392,17 @@ class ActivityRepositoryImpl @Inject constructor(
                     date = date,
                     isCompleted = isCompleted,
                     completedAt = completedAt,
-                    updatedAt = now,
-                    createdAt = now
+                    createdAt = now,
+                    updatedAt = now
                 )
             )
         } else {
-            activityDao.toggleSubtaskCompletion(
-                subtaskId = subtaskId,
-                date = date,
-                isCompleted = isCompleted,
-                completedAt = completedAt,
-                updatedAt = now
+            activityDao.upsertSubtaskLog(
+                existingLog.copy(
+                    isCompleted = isCompleted,
+                    completedAt = completedAt,
+                    updatedAt = now
+                )
             )
         }
     }
@@ -340,110 +416,37 @@ private fun buildPeriodSummary(
     startDate: String,
     endDate: String
 ): ActivityPeriodSummaryModel {
-    val periodDayCount = countDaysInclusive(
-        startDate = startDate,
-        endDate = endDate
-    )
+    val startLocalDate = LocalDate.parse(startDate)
+    val endLocalDate = LocalDate.parse(endDate)
+    val periodDayCount = (ChronoUnit.DAYS.between(startLocalDate, endLocalDate) + 1).toInt()
 
-    val loggedDayCount = logs
-        .map { log ->
-            log.date
-        }
-        .distinct()
-        .size
-
-    val completedDayCount = logs.count { log ->
-        log.isCompleted
-    }
-
-    val latestLog = logs.maxByOrNull { log ->
-        log.date
-    }
-
-    val totalValue = logs
-        .mapNotNull { log ->
-            log.value
-        }
-        .takeIf { values ->
-            values.isNotEmpty()
-        }
-        ?.sum()
-
-    val targetValue = activity.targetValue?.let { dailyTarget ->
-        if (dailyTarget > 0.0) {
-            dailyTarget * periodDayCount
+    // Progress calculation
+    val progress: Float? = if (activity.trackingType == ActivityTrackingType.MEASURABLE) {
+        if (activity.measurableMode == MeasurableMode.CHECKLIST) {
+            if (subtasks.isEmpty()) 0f
+            else (subtaskLogs.count { it.isCompleted }.toFloat() / subtasks.size.toFloat()).coerceIn(0f, 1f)
         } else {
-            null
+            val target = activity.targetValue ?: 1.0
+            val current = logs.firstOrNull()?.value ?: 0.0 // Simplified for daily/period
+            (current / target).toFloat().coerceIn(0f, 1f)
         }
-    }
-
-    val completedSubtaskLogCount = subtaskLogs.count { log ->
-        log.isCompleted
-    }
-
-    val totalSubtaskPossibleCount = subtasks.size * periodDayCount
-
-    val numericProgress = if (
-        totalValue != null &&
-        targetValue != null &&
-        targetValue > 0.0
-    ) {
-        (totalValue / targetValue)
-            .toFloat()
-            .coerceIn(0f, 1f)
     } else {
-        null
-    }
-
-    val checklistProgress = if (totalSubtaskPossibleCount > 0) {
-        (completedSubtaskLogCount.toFloat() / totalSubtaskPossibleCount.toFloat())
-            .coerceIn(0f, 1f)
-    } else {
-        null
-    }
-
-    val completionProgress = if (periodDayCount > 0) {
-        (completedDayCount.toFloat() / periodDayCount.toFloat())
-            .coerceIn(0f, 1f)
-    } else {
-        null
-    }
-
-    val progress = when {
-        activity.measurableMode?.name == "NUMERIC" -> numericProgress
-        activity.measurableMode?.name == "CHECKLIST" -> checklistProgress
-        else -> completionProgress
-    }
-
-    val isCompleted = when {
-        activity.measurableMode?.name == "NUMERIC" -> {
-            progress != null && progress >= 1f
-        }
-
-        activity.measurableMode?.name == "CHECKLIST" -> {
-            totalSubtaskPossibleCount > 0 &&
-                    completedSubtaskLogCount >= totalSubtaskPossibleCount
-        }
-
-        else -> {
-            periodDayCount > 0 &&
-                    completedDayCount >= periodDayCount
-        }
+        if (logs.any { it.isCompleted }) 1f else 0f
     }
 
     return ActivityPeriodSummaryModel(
         startDate = startDate,
         endDate = endDate,
         periodDayCount = periodDayCount,
-        loggedDayCount = loggedDayCount,
-        completedDayCount = completedDayCount,
-        totalValue = totalValue,
-        targetValue = targetValue,
-        completedSubtaskLogCount = completedSubtaskLogCount,
-        totalSubtaskPossibleCount = totalSubtaskPossibleCount,
+        loggedDayCount = logs.size,
+        completedDayCount = logs.count { it.isCompleted },
+        totalValue = logs.sumOf { it.value ?: 0.0 },
+        targetValue = activity.targetValue,
+        completedSubtaskLogCount = subtaskLogs.count { it.isCompleted },
+        totalSubtaskPossibleCount = subtasks.size,
         progress = progress,
-        isCompleted = isCompleted,
-        latestLog = latestLog
+        isCompleted = (progress ?: 0f) >= 1f,
+        latestLog = logs.maxByOrNull { it.date }
     )
 }
 

@@ -107,7 +107,7 @@ fun ActivityEntity.toUiModel(
 
         streakCount = if (isHabit) streakCount else null,
 
-        dueText = buildDueText(),
+        dueText = buildDueText(dueDate),
         repeatText = buildRepeatText(),
 
         progress = progress,
@@ -184,7 +184,7 @@ private fun calculateChecklistProgress(
 
 @Composable
 private fun ActivityEntity.buildRepeatText(): String? {
-    if (!repeatEnabled) return null
+    if (activityType != ActivityType.HABIT) return null
 
     val interval = repeatInterval ?: 1
     val unit = repeatUnit ?: return null
@@ -230,8 +230,8 @@ private fun ActivityEntity.buildRepeatText(): String? {
 }
 
 @Composable
-private fun ActivityEntity.buildDueText(): String? {
-    return when (timeOfDay) {
+private fun ActivityEntity.buildDueText(dueDate: String?): String? {
+    val timeText = when (timeOfDay) {
         TimeOfDay.START_OF_DAY -> stringResource(R.string.startOfDay)
         TimeOfDay.AFTERNOON -> stringResource(R.string.afternoon)
         TimeOfDay.EVENING -> stringResource(R.string.evening)
@@ -241,6 +241,11 @@ private fun ActivityEntity.buildDueText(): String? {
         TimeOfDay.SPECIFIC_TIME -> {
             specificTimeMinutes?.toDisplayTime()
         }
+    }
+    return if (activityType == ActivityType.TASK && dueDate != null) {
+        "${dueDate.toDisplayDate()} • $timeText"
+    } else {
+        timeText
     }
 }
 
